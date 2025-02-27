@@ -26,11 +26,14 @@ InnovateEasy provides an AI-driven, all-in-one platform for seamless project ide
 InnovateEasy is a full-stack web platform designed to simplify the journey from ideation to completion for projects and research papers. Powered by AI, it offers tailored solutions, streamlined management, and originality assurance in one intuitive interface.
 
 ## Technology Stack 👨‍💻
--Node.js
--Next.js
--Tailwind CSS
--Javascript
--Supabase
--Vercel
+- <b> Node.js
+-<b> Next.js
+-<b> Tailwind CSS
+-<b> Javascript
+-<b> Supabase
+-<b> Vercel
 
 ## Future Scope
+- <b> Develop a mobile version for on-the-go access to dashboards, idea generation, and task management.
+- <b> Create a community marketplace where users can share project templates, research ideas, or hire freelancers for implementation.
+- <b>Introduce progress tracking, productivity insights, and predictive timelines using AI to optimize workflows.
