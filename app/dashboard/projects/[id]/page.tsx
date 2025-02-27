@@ -8,7 +8,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Calendar, CheckCircle, Home, List, Map } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, Calendar, CheckCircle, Home, List, Map, Bell } from "lucide-react";
 import OpenAI from "openai";
 
 const openai = new OpenAI({
@@ -42,20 +43,33 @@ interface RoadmapStep {
   position: number;
 }
 
+interface Reminder {
+  id: number;
+  project_id: number;
+  user_id: string;
+  reminder_date: string;
+  message: string;
+  is_recurring: boolean;
+  recurrence_interval?: string;
+}
+
 export default function ViewProjectPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [roadmapSteps, setRoadmapSteps] = useState<RoadmapStep[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
   const [selectedStep, setSelectedStep] = useState<RoadmapStep | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [newReminder, setNewReminder] = useState({ date: "", message: "", isRecurring: false, interval: "" });
   const router = useRouter();
   const { id } = useParams();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab") || "info";
 
   useEffect(() => {
-    const fetchProjectAndRoadmap = async () => {
+    const fetchProjectAndData = async () => {
       try {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError || !user) {
@@ -86,8 +100,19 @@ export default function ViewProjectPage() {
 
         if (roadmapError) throw roadmapError;
         setRoadmapSteps(roadmapData || []);
+
+        const { data: reminderData, error: reminderError } = await supabase
+          .from("reminders")
+          .select("*")
+          .eq("project_id", id)
+          .eq("user_id", user.id);
+
+        if (reminderError) throw reminderError;
+        setReminders(reminderData || []);
+
         console.log("Fetched Project:", projectData);
         console.log("Fetched Roadmap Steps:", roadmapData);
+        console.log("Fetched Reminders:", reminderData);
       } catch (error) {
         console.error("Fetch Error:", error);
         router.push("/dashboard/projects");
@@ -96,7 +121,7 @@ export default function ViewProjectPage() {
       }
     };
 
-    fetchProjectAndRoadmap();
+    fetchProjectAndData();
   }, [id, router]);
 
   const handleBack = () => {
@@ -141,7 +166,6 @@ export default function ViewProjectPage() {
       const result = response.choices[0].message.content || "";
       console.log("Roadmap Generation Response:", result);
 
-      // Split by double newline (\n\n) instead of "---"
       const stepBlocks = result.split(/\n\n/).filter(block => block.trim().startsWith("Step"));
       console.log("Step Blocks After Split:", stepBlocks);
 
@@ -166,7 +190,6 @@ export default function ViewProjectPage() {
 
       console.log("Parsed Steps Before Insert:", steps);
 
-      // Insert all steps into Supabase
       const { data, error } = await supabase.from("roadmap_steps").insert(steps).select();
       if (error) {
         console.error("Supabase Insert Error:", error);
@@ -248,6 +271,49 @@ export default function ViewProjectPage() {
     }
   };
 
+  const handleAddReminder = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user logged in");
+
+      const reminder = {
+        project_id: parseInt(id as string),
+        user_id: user.id,
+        reminder_date: newReminder.date,
+        message: newReminder.message,
+        is_recurring: newReminder.isRecurring,
+        recurrence_interval: newReminder.isRecurring ? newReminder.interval : null,
+      };
+
+      const { data, error } = await supabase.from("reminders").insert(reminder).select().single();
+      if (error) throw error;
+
+      // Send email via API
+      const emailResponse = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: user.email,
+          subject: `Reminder: ${project?.name} - ${newReminder.message}`,
+          text: `Reminder set for ${new Date(newReminder.date).toLocaleString()}: ${newReminder.message}`,
+        }),
+      });
+
+      if (!emailResponse.ok) throw new Error("Failed to send email");
+
+      setReminders((prev) => [...prev, data]);
+      setNewReminder({ date: "", message: "", isRecurring: false, interval: "" });
+    } catch (error) {
+      console.error("Error adding reminder:", error);
+      alert("Failed to add reminder. Please try again.");
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    // Placeholder for saving notes (could persist to Supabase if needed)
+    console.log("Notes saved:", notes);
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
@@ -298,7 +364,7 @@ export default function ViewProjectPage() {
                 Roadmap
               </TabsTrigger>
               <TabsTrigger value="reminder">
-                <Calendar className="h-4 w-4 mr-2" />
+                <Bell className="h-4 w-4 mr-2" />
                 Reminder
               </TabsTrigger>
             </TabsList>
@@ -437,14 +503,17 @@ export default function ViewProjectPage() {
                     onClick={() => handleStepClick(step)}
                   >
                     <div
-                      className={`w-1/2 p-4 ${index % 2 === 0 ? "pr-8 text-right" : "pl-8 text-left"}`}
+                      className={`w-1/2 p-4 rounded-lg shadow-md transition-all duration-300 hover:shadow-lg ${
+                        step.status === "completed" ? "bg-green-100 border-green-300" : "bg-blue-50 border-blue-200"
+                      } border ${index % 2 === 0 ? "pr-8 text-right" : "pl-8 text-left"}`}
                     >
                       <div className="flex items-center gap-2">
                         <Checkbox
                           checked={step.status === "completed"}
                           onCheckedChange={() => handleToggleTask(step.id, step.status)}
+                          className="text-green-600"
                         />
-                        <p className="text-lg font-medium">{step.step_name}</p>
+                        <p className="text-lg font-medium text-gray-800">{step.step_name}</p>
                       </div>
                     </div>
                   </div>
@@ -460,7 +529,109 @@ export default function ViewProjectPage() {
           </TabsContent>
 
           <TabsContent value="reminder" className="space-y-6">
-            <p className="text-muted-foreground text-lg">Reminder setup coming soon...</p>
+            <div>
+              <h2 className="text-2xl font-bold">Reminders</h2>
+              <p className="text-sm text-muted-foreground">Set up notifications for your project</p>
+            </div>
+
+            {/* Reminder Setup Form */}
+            <div className="space-y-4 border p-4 rounded-lg">
+              <h3 className="text-lg font-semibold">Add New Reminder</h3>
+              <div>
+                <label className="text-sm text-muted-foreground">Reminder Date</label>
+                <Input
+                  type="datetime-local"
+                  value={newReminder.date}
+                  onChange={(e) => setNewReminder({ ...newReminder, date: e.target.value })}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground">Message</label>
+                <Textarea
+                  value={newReminder.message}
+                  onChange={(e) => setNewReminder({ ...newReminder, message: e.target.value })}
+                  placeholder="e.g., Deadline approaching for task X"
+                  className="w-full h-24"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={newReminder.isRecurring}
+                  onCheckedChange={(checked) => setNewReminder({ ...newReminder, isRecurring: !!checked })}
+                />
+                <label className="text-sm text-muted-foreground">Recurring Reminder</label>
+              </div>
+              {newReminder.isRecurring && (
+                <div>
+                  <label className="text-sm text-muted-foreground">Recurrence Interval</label>
+                  <select
+                    value={newReminder.interval}
+                    onChange={(e) => setNewReminder({ ...newReminder, interval: e.target.value })}
+                    className="w-full p-2 border rounded"
+                  >
+                    <option value="">Select Interval</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="biweekly">Biweekly</option>
+                  </select>
+                </div>
+              )}
+              <Button
+                variant="default"
+                onClick={handleAddReminder}
+                disabled={!newReminder.date || !newReminder.message}
+              >
+                Add Reminder
+              </Button>
+            </div>
+
+            {/* Existing Reminders */}
+            {reminders.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Scheduled Reminders</h3>
+                <ul className="space-y-2">
+                  {reminders.map((reminder) => (
+                    <li key={reminder.id} className="p-2 border rounded flex justify-between items-center">
+                      <div>
+                        <p className="text-sm font-medium">{reminder.message}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(reminder.reminder_date).toLocaleString()}
+                          {reminder.is_recurring ? ` (${reminder.recurrence_interval})` : ""}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Task Progress Summary */}
+            {roadmapSteps.length > 0 && (
+              <div className="space-y-4 border p-4 rounded-lg">
+                <h3 className="text-lg font-semibold">Task Progress</h3>
+                <p className="text-sm">
+                  Completed Tasks: {completedTasks} / {totalTasks} (
+                  {((completedTasks / totalTasks) * 100).toFixed(1)}%)
+                </p>
+                <p className="text-sm">Pending Tasks: {totalTasks - completedTasks}</p>
+              </div>
+            )}
+
+            {/* Custom Notes */}
+            <div className="space-y-4 border p-4 rounded-lg">
+              <h3 className="text-lg font-semibold">Project Notes</h3>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add personal notes about this project..."
+                className="w-full h-32"
+              />
+              <Button variant="outline" onClick={handleSaveNotes}>
+                Save Notes
+              </Button>
+            </div>
+
             <div className="flex justify-end">
               <Button variant="outline" onClick={handleBack}>
                 Back
