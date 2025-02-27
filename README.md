@@ -26,7 +26,7 @@ InnovateEasy provides an AI-driven, all-in-one platform for seamless project ide
 InnovateEasy is a full-stack web platform designed to simplify the journey from ideation to completion for projects and research papers. Powered by AI, it offers tailored solutions, streamlined management, and originality assurance in one intuitive interface.
 
 ## Technology Stack 👨‍💻
-- <b> Node.js
+-<b> Node.js
 -<b> Next.js
 -<b> Tailwind CSS
 -<b> Javascript
@@ -34,9 +34,9 @@ InnovateEasy is a full-stack web platform designed to simplify the journey from 
 -<b> Vercel
 
 ## Future Scope
-- <b> Develop a mobile version for on-the-go access to dashboards, idea generation, and task management.
-- <b> Create a community marketplace where users can share project templates, research ideas, or hire freelancers for implementation.
-- <b>Introduce progress tracking, productivity insights, and predictive timelines using AI to optimize workflows.
+- <br> Develop a mobile version for on-the-go access to dashboards, idea generation, and task management.<br>
+- <br> Create a community marketplace where users can share project templates, research ideas, or hire freelancers for implementation.<br>
+- <br>Introduce progress tracking, productivity insights, and predictive timelines using AI to optimize workflows. <br>
 
 ## Conclusion 🔥
 InnovateEasy empowers users to effortlessly ideate, manage, and complete projects and research with AI-driven precision, setting the stage for a more creative and productive future.
@@ -56,7 +56,7 @@ InnovateEasy empowers users to effortlessly ideate, manage, and complete project
       </td>
       <td align="center" valign="top" style="width:25%">
         <a href="https://github.com/priyanshu3082">
-          <img width="100" height="100" src="https://avatars.githubusercontent.com/u/118398335?v=4">
+          <img width="100" height="100" src="https://avatars.githubusercontent.com/u/127988127?v=4">
         </a>
         <br>
         <a href="https://github.com/priyanshu3082">Priyanshu Nayan</a>
