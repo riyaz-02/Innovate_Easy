@@ -90,17 +90,16 @@ export default function ViewProjectPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Project Navbar */}
-      <nav className="sticky top-0 z-40 border-b bg-background">
-        <div className="container flex h-16 items-center justify-between py-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={handleBack}>
-              <ArrowLeft className="h-5 w-5" />
-              <span className="sr-only">Back to Projects</span>
-            </Button>
-            <h1 className="text-2xl font-bold">{project.name}</h1>
-          </div>
-          <Tabs defaultValue="info" className="flex items-center">
+      <Tabs defaultValue="info" className="flex-1">
+        {/* Project Navbar */}
+        <nav className="sticky top-0 z-40 border-b bg-background">
+          <div className="container flex h-16 items-center justify-between py-4">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={handleBack}>
+                <ArrowLeft className="h-5 w-5" />
+                <span className="sr-only">Back to Projects</span>
+              </Button>
+            </div>
             <TabsList>
               <TabsTrigger value="info">
                 <Home className="h-4 w-4 mr-2" />
@@ -119,13 +118,17 @@ export default function ViewProjectPage() {
                 Reminder
               </TabsTrigger>
             </TabsList>
-          </Tabs>
-        </div>
-      </nav>
+          </div>
+        </nav>
 
-      {/* Main Content */}
-      <main className="flex-1 p-6 md:p-8">
-        <Tabs defaultValue="info" className="w-full">
+        {/* Main Content */}
+        <main className="flex-1 p-6 md:p-8">
+          {/* Project Title Box */}
+          <div className="mb-6 p-4 rounded-lg bg-gradient-to-r from-blue-300 to-purple-300">
+            <h1 className="text-2xl font-bold text-white">{project.name}</h1>
+          </div>
+
+          {/* Tabbed Content */}
           <TabsContent value="info" className="space-y-6">
             <div>
               <p className="text-sm text-muted-foreground">Created on</p>
@@ -224,8 +227,8 @@ export default function ViewProjectPage() {
               </Button>
             </div>
           </TabsContent>
-        </Tabs>
-      </main>
+        </main>
+      </Tabs>
     </div>
   );
 }
