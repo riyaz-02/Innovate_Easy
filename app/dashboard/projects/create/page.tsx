@@ -21,7 +21,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/lib/supabaseClient"; // Ensure this is set up
+import { supabase } from "@/lib/supabaseClient";
 import OpenAI from "openai";
 
 const openai = new OpenAI({
@@ -128,7 +128,7 @@ export default function CreateProjectPage() {
       setQuizStep(4);
       setShowReasonInput(false);
       setRejectionReason("");
-      setShowForm(false); // Ensure form isn’t shown until accept
+      setShowForm(false);
     } catch (error) {
       console.error("Error generating idea:", error);
       alert("Failed to generate an idea. Check your API key or try again.");
@@ -283,15 +283,16 @@ export default function CreateProjectPage() {
         created_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase.from("projects").insert(projectData);
+      const { data, error } = await supabase.from("projects").insert(projectData).select("id").single();
       if (error) {
         console.error("Supabase Insert Error:", error);
         throw error;
       }
 
       console.log("Project saved successfully:", projectData);
+      const projectId = data.id; // Get the inserted project's ID
       setIsQuizOpen(false);
-      router.push("/dashboard/projects"); // Redirect to projects page
+      router.push(`/dashboard/projects/${projectId}?tab=roadmap`); // Redirect to Roadmap tab
     } catch (error) {
       console.error("Error saving project:", error);
       alert("Failed to save project. Please check your database setup and try again.");
