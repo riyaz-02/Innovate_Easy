@@ -11,10 +11,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 587,
-    secure: false, // Use TLS
+    secure: false,
     auth: {
-      user: process.env.GMAIL_USER, // Your Gmail address
-      pass: process.env.GMAIL_APP_PASSWORD, // Your App Password
+      user: process.env.GMAIL_USER, 
+      pass: process.env.GMAIL_APP_PASSWORD, 
     },
   });
 
