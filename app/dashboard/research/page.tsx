@@ -66,6 +66,15 @@ interface Project {
   device?: string;
 }
 
+// Interface for Google Scholar search results from SerpAPI
+interface ScholarResult {
+  title: string;
+  authors: string[];
+  publication: string;
+  year: number;
+  link: string;
+}
+
 export default function CreateProjectPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,6 +115,9 @@ export default function CreateProjectPage() {
   const [editedContent, setEditedContent] = useState("");
   const [publishingCost, setPublishingCost] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"view" | "edit">("view");
+  const [scholarResults, setScholarResults] = useState<ScholarResult[]>([]);
+  const [scholarSearch, setScholarSearch] = useState("");
+  const [isFetchingScholar, setIsFetchingScholar] = useState(false);
   const router = useRouter();
 
   const cardColors = [
@@ -116,6 +128,8 @@ export default function CreateProjectPage() {
     { bg: "bg-teal-500/10", border: "border-teal-500/20", progress: "bg-teal-500" },
     { bg: "bg-emerald-500/10", border: "border-emerald-500/20", progress: "bg-emerald-500" },
   ];
+
+  const SERPAPI_KEY = "61f15af1a2a8e323263ca25aeaa25f0bc6fecbb51a6321c68137d1d4fd3c9971";
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -162,6 +176,36 @@ export default function CreateProjectPage() {
     setSuggestedVenues(suggestions);
   };
 
+  // Fetch published research papers from Google Scholar via SerpAPI
+  const fetchScholarPapers = async (query: string) => {
+    setIsFetchingScholar(true);
+    try {
+      const response = await axios.get(`https://serpapi.com/search.json`, {
+        params: {
+          engine: "google_scholar",
+          q: query,
+          api_key: SERPAPI_KEY,
+          num: 10, // Number of results to fetch
+        },
+      });
+
+      const results = response.data.organic_results?.map((result: any) => ({
+        title: result.title,
+        authors: result.authors || [],
+        publication: result.publication?.title || "Unknown",
+        year: result.publication_info?.summary?.match(/\d{4}/)?.[0] || "Unknown",
+        link: result.link,
+      })) || [];
+
+      setScholarResults(results);
+    } catch (error) {
+      console.error("Error fetching Scholar papers:", error);
+      alert("Failed to fetch published papers. Please check your API key or try again.");
+    } finally {
+      setIsFetchingScholar(false);
+    }
+  };
+
   // Handle file upload
   const { getRootProps, getInputProps } = useDropzone({
     accept: { "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"] },
@@ -183,9 +227,13 @@ export default function CreateProjectPage() {
       const response = await axios.post("/api/convertFormat", {
         text: rawText,
         format: selectedFormat,
+      }, {
+        headers: {
+          "Content-Type": "application/json",
+        },
       });
-      setConvertedContent(response.data);
-      setEditedContent(response.data); // Initialize edited content with converted content
+      setConvertedContent(response.data.content); // Assuming the API returns { content: "formatted text" }
+      setEditedContent(response.data.content);
       const costs: { [key: string]: string } = {
         "IEEE Transactions": "$1000-$2000",
         "Springer Computer Science": "$1500-$3000",
@@ -195,16 +243,24 @@ export default function CreateProjectPage() {
       };
       setPublishingCost(costs[selectedVenue] || "Varies by journal");
     } catch (error) {
-      console.error("Error converting content:", error);
+      if (axios.isAxiosError(error)) {
+        console.error("Error converting content:", error.response?.data || error.message);
+      } else {
+        console.error("Error converting content:", error);
+      }
+      if (axios.isAxiosError(error)) {
+        alert(`Failed to convert content: ${error.response?.statusText || "Unknown error"}`);
+      } else {
+        alert("Failed to convert content: Unknown error");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Save edited content (you can add logic to save to Supabase or elsewhere)
+  // Save edited content
   const saveEditedContent = () => {
     setConvertedContent(editedContent);
-    // Optionally, save to Supabase or local storage
     console.log("Saved edited content:", editedContent);
   };
 
@@ -831,7 +887,7 @@ export default function CreateProjectPage() {
           <DialogHeader>
             <DialogTitle>Create a New Research Paper</DialogTitle>
             <DialogDescription>
-              Learn where to publish your work and convert it to the desired format.
+              Learn where to publish your work, convert it to the desired format, or explore existing papers.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -850,6 +906,36 @@ export default function CreateProjectPage() {
               />
               <Button onClick={suggestVenues} className="mt-2">Suggest Venues</Button>
             </div>
+            <div>
+              <Label htmlFor="scholarSearch">Search Existing Research Papers</Label>
+              <Input
+                id="scholarSearch"
+                value={scholarSearch}
+                onChange={(e) => setScholarSearch(e.target.value)}
+                placeholder="Search by title, author, or keyword..."
+                className="mb-2"
+              />
+              <Button onClick={() => fetchScholarPapers(scholarSearch)} disabled={isFetchingScholar}>
+                {isFetchingScholar ? "Searching..." : "Search Papers"}
+              </Button>
+            </div>
+            {scholarResults.length > 0 && (
+              <div className="mt-4">
+                <Label>Published Research Papers</Label>
+                <div className="grid gap-4">
+                  {scholarResults.map((result, index) => (
+                    <Card key={index} className="p-4">
+                      <h3 className="font-semibold">{result.title}</h3>
+                      <p className="text-sm text-muted-foreground">Authors: {result.authors.join(", ")}</p>
+                      <p className="text-sm text-muted-foreground">Publication: {result.publication} ({result.year})</p>
+                      <a href={result.link} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                        View Paper
+                      </a>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
             {suggestedVenues.length > 0 && (
               <div>
                 <Label>Suggested Publication Venues</Label>
