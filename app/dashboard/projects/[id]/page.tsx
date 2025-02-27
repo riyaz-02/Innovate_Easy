@@ -9,8 +9,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Calendar, CheckCircle, Home, List, Map, Bell } from "lucide-react";
+import { ArrowLeft, Bell, CheckCircle, Home, List, Map } from "lucide-react";
 import OpenAI from "openai";
+import { google } from "googleapis";
 
 const openai = new OpenAI({
   apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
@@ -49,8 +50,6 @@ interface Reminder {
   user_id: string;
   reminder_date: string;
   message: string;
-  is_recurring: boolean;
-  recurrence_interval?: string;
 }
 
 export default function ViewProjectPage() {
@@ -62,11 +61,12 @@ export default function ViewProjectPage() {
   const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
   const [selectedStep, setSelectedStep] = useState<RoadmapStep | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [newReminder, setNewReminder] = useState({ date: "", message: "", isRecurring: false, interval: "" });
+  const [newReminder, setNewReminder] = useState({ date: "", message: "" });
   const router = useRouter();
   const { id } = useParams();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab") || "info";
+  const tokens = searchParams.get("tokens") ? JSON.parse(decodeURIComponent(searchParams.get("tokens")!)) : null;
 
   useEffect(() => {
     const fetchProjectAndData = async () => {
@@ -271,7 +271,7 @@ export default function ViewProjectPage() {
     }
   };
 
-  const handleAddReminder = async () => {
+  const handleAddToGoogleCalendar = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No user logged in");
@@ -281,31 +281,60 @@ export default function ViewProjectPage() {
         user_id: user.id,
         reminder_date: newReminder.date,
         message: newReminder.message,
-        is_recurring: newReminder.isRecurring,
-        recurrence_interval: newReminder.isRecurring ? newReminder.interval : null,
       };
 
       const { data, error } = await supabase.from("reminders").insert(reminder).select().single();
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase Insert Error:", error);
+        throw error;
+      }
 
-      // Send email via SMTP API route
-      const emailResponse = await fetch("/api/send-smtp-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: user.email,
-          subject: `Reminder: ${project?.name} - ${newReminder.message}`,
-          text: `Reminder set for ${new Date(newReminder.date).toLocaleString()}: ${newReminder.message}`,
-        }),
+      // Redirect to Google OAuth if no tokens
+      if (!tokens) {
+        window.location.href = `/api/auth/google?projectId=${id}`;
+        return;
+      }
+
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_SECRET,
+        process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI
+      );
+      oauth2Client.setCredentials(tokens);
+
+      const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+
+      const event = {
+        summary: `Deadline: ${project?.name}`,
+        description: newReminder.message,
+        start: {
+          dateTime: new Date(newReminder.date).toISOString(),
+          timeZone: "UTC",
+        },
+        end: {
+          dateTime: new Date(new Date(newReminder.date).getTime() + 60 * 60 * 1000).toISOString(), // 1 hour event
+          timeZone: "UTC",
+        },
+        reminders: {
+          useDefault: false,
+          overrides: [
+            { method: "email", minutes: 24 * 60 }, // 1 day before
+            { method: "popup", minutes: 10 }, // 10 minutes before
+          ],
+        },
+      };
+
+      await calendar.events.insert({
+        calendarId: "primary",
+        resource: event,
       });
 
-      if (!emailResponse.ok) throw new Error("Failed to send email");
-
       setReminders((prev) => [...prev, data]);
-      setNewReminder({ date: "", message: "", isRecurring: false, interval: "" });
+      setNewReminder({ date: "", message: "" });
+      alert("Event added to Google Calendar!");
     } catch (error) {
-      console.error("Error adding reminder:", error);
-      alert("Failed to add reminder. Check your SMTP setup and try again.");
+      console.error("Error adding to Google Calendar:", error);
+      alert("Failed to add event to Google Calendar. Please try again.");
     }
   };
 
@@ -532,14 +561,14 @@ export default function ViewProjectPage() {
           <TabsContent value="reminder" className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold">Reminders</h2>
-              <p className="text-sm text-muted-foreground">Set up notifications for your project</p>
+              <p className="text-sm text-muted-foreground">Set up reminders for your project in Google Calendar</p>
             </div>
 
             {/* Reminder Setup Form */}
             <div className="space-y-4 border p-4 rounded-lg">
-              <h3 className="text-lg font-semibold">Add New Reminder</h3>
+              <h3 className="text-lg font-semibold">Set Project Deadline</h3>
               <div>
-                <label className="text-sm text-muted-foreground">Reminder Date</label>
+                <label className="text-sm text-muted-foreground">Deadline Date</label>
                 <Input
                   type="datetime-local"
                   value={newReminder.date}
@@ -552,38 +581,16 @@ export default function ViewProjectPage() {
                 <Textarea
                   value={newReminder.message}
                   onChange={(e) => setNewReminder({ ...newReminder, message: e.target.value })}
-                  placeholder="e.g., Deadline approaching for task X"
+                  placeholder="e.g., Finish project by this date"
                   className="w-full h-24"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={newReminder.isRecurring}
-                  onCheckedChange={(checked) => setNewReminder({ ...newReminder, isRecurring: !!checked })}
-                />
-                <label className="text-sm text-muted-foreground">Recurring Reminder</label>
-              </div>
-              {newReminder.isRecurring && (
-                <div>
-                  <label className="text-sm text-muted-foreground">Recurrence Interval</label>
-                  <select
-                    value={newReminder.interval}
-                    onChange={(e) => setNewReminder({ ...newReminder, interval: e.target.value })}
-                    className="w-full p-2 border rounded"
-                  >
-                    <option value="">Select Interval</option>
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="biweekly">Biweekly</option>
-                  </select>
-                </div>
-              )}
               <Button
                 variant="default"
-                onClick={handleAddReminder}
+                onClick={handleAddToGoogleCalendar}
                 disabled={!newReminder.date || !newReminder.message}
               >
-                Add Reminder
+                Add to Google Calendar
               </Button>
             </div>
 
@@ -598,7 +605,6 @@ export default function ViewProjectPage() {
                         <p className="text-sm font-medium">{reminder.message}</p>
                         <p className="text-xs text-muted-foreground">
                           {new Date(reminder.reminder_date).toLocaleString()}
-                          {reminder.is_recurring ? ` (${reminder.recurrence_interval})` : ""}
                         </p>
                       </div>
                     </li>
@@ -606,32 +612,6 @@ export default function ViewProjectPage() {
                 </ul>
               </div>
             )}
-
-            {/* Task Progress Summary */}
-            {roadmapSteps.length > 0 && (
-              <div className="space-y-4 border p-4 rounded-lg">
-                <h3 className="text-lg font-semibold">Task Progress</h3>
-                <p className="text-sm">
-                  Completed Tasks: {completedTasks} / {totalTasks} (
-                  {((completedTasks / totalTasks) * 100).toFixed(1)}%)
-                </p>
-                <p className="text-sm">Pending Tasks: {totalTasks - completedTasks}</p>
-              </div>
-            )}
-
-            {/* Custom Notes */}
-            <div className="space-y-4 border p-4 rounded-lg">
-              <h3 className="text-lg font-semibold">Project Notes</h3>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add personal notes about this project..."
-                className="w-full h-32"
-              />
-              <Button variant="outline" onClick={handleSaveNotes}>
-                Save Notes
-              </Button>
-            </div>
 
             <div className="flex justify-end">
               <Button variant="outline" onClick={handleBack}>
