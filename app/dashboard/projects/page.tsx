@@ -28,7 +28,7 @@ interface Project {
   description: string;
   status: "pending" | "completed";
   created_at: string;
-  estimated_time?: number; // Optional, in days
+  estimated_duration: string; // Updated from estimated_time
 }
 
 export default function ProjectsPage() {
@@ -36,7 +36,6 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // Array of colors for project cards
   const cardColors = [
     { bg: "bg-blue-500/10", border: "border-blue-500/20", progress: "bg-blue-500" },
     { bg: "bg-purple-500/10", border: "border-purple-500/20", progress: "bg-purple-500" },
@@ -59,7 +58,7 @@ export default function ProjectsPage() {
 
         const { data, error } = await supabase
           .from("projects")
-          .select("id, name, description, status, created_at, estimated_time")
+          .select("id, name, description, status, created_at, estimated_duration") // Updated to estimated_duration
           .eq("user_id", user.id)
           .order("created_at", { ascending: false });
 
@@ -108,22 +107,17 @@ export default function ProjectsPage() {
             const colorIndex = i % cardColors.length;
             const colors = cardColors[colorIndex];
 
-            // Calculate remaining days (simplified: assumes estimated_time is total duration)
             const createdDate = new Date(project.created_at);
             const now = new Date();
             const daysSinceCreation = Math.floor(
               (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)
             );
-            const daysLeft = project.estimated_time
-              ? Math.max(0, project.estimated_time - daysSinceCreation)
+            const daysLeft = project.estimated_duration
+              ? Math.max(0, parseInt(project.estimated_duration) - daysSinceCreation)
               : "N/A";
 
-            // Progress: 100% if completed, otherwise estimate based on time (or add a progress field later)
-            const progress = project.status === "completed"
-              ? 100
-              : project.estimated_time
-              ? Math.min(90, Math.floor((daysSinceCreation / project.estimated_time) * 100))
-              : 50;
+            const progress =
+              project.status === "completed" ? 100 : daysLeft === "N/A" ? 50 : Math.min(90, (daysSinceCreation / parseInt(project.estimated_duration)) * 100);
 
             return (
               <Card key={project.id} className={`overflow-hidden ${colors.bg} ${colors.border}`}>
@@ -190,7 +184,7 @@ export default function ProjectsPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-between p-6 pt-0">
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/projects/${project.id}`)}>
                     View Details
                   </Button>
                   <div className="flex space-x-2">

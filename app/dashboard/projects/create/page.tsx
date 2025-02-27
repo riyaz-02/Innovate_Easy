@@ -21,7 +21,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/lib/supabaseClient"; // Assuming supabase setup
+import { supabase } from "@/lib/supabaseClient"; // Ensure this is set up
 import OpenAI from "openai";
 
 const openai = new OpenAI({
@@ -51,13 +51,12 @@ export default function CreateProjectPage() {
   const [showReasonInput, setShowReasonInput] = useState(false);
   const [previousIdea, setPreviousIdea] = useState<string>("");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [showForm, setShowForm] = useState(false); // Only set true after accept
+  const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     overview: "",
     features: "",
     challenges: "",
   });
-  const [roadmap, setRoadmap] = useState<string | null>(null);
   const router = useRouter();
 
   const handleOptionClick = (option: string) => {
@@ -168,7 +167,7 @@ export default function CreateProjectPage() {
     try {
       console.log("Accepted Idea:", currentIdea);
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      setShowForm(true); // Show form after accept
+      setShowForm(true);
     } catch (error) {
       console.error("Error accepting idea:", error);
       alert("Failed to accept the idea. Please try again.");
@@ -184,7 +183,7 @@ export default function CreateProjectPage() {
       setIdeaHistory((prev) => prev.slice(0, -1));
       setShowReasonInput(false);
       setRejectionReason("");
-      setShowForm(false); // Reset form visibility
+      setShowForm(false);
     }
   };
 
@@ -231,7 +230,6 @@ export default function CreateProjectPage() {
       const result = response.choices[0].message.content || "";
       console.log("Auto Generate Response:", result);
 
-      // Improved parsing with regex to handle multi-line sections
       const overviewMatch = result.match(/Overview:([\s\S]*?)(?=Features:)/);
       const featuresMatch = result.match(/Features:([\s\S]*?)(?=Challenges:)/);
       const challengesMatch = result.match(/Challenges:([\s\S]*$)/);
@@ -271,35 +269,32 @@ export default function CreateProjectPage() {
 
       const projectData = {
         user_id: user.id,
-        name: currentIdea?.text,
+        name: currentIdea?.text || "Untitled Project",
         description: formData.overview,
         status: "pending",
         complexity: parseInt(currentIdea?.complexity || "5"),
         estimated_duration: currentIdea?.duration,
         features: formData.features,
         challenges: formData.challenges,
+        project_type: quizData.projectType + (quizData.customSubfield ? ` (${quizData.customSubfield})` : ""),
+        experience_level: quizData.experienceLevel,
+        languages: quizData.languages.join(", ") + (quizData.customLanguage ? `, ${quizData.customLanguage}` : ""),
+        device: quizData.device,
         created_at: new Date().toISOString(),
       };
 
       const { error } = await supabase.from("projects").insert(projectData);
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase Insert Error:", error);
+        throw error;
+      }
 
-      const roadmapPrompt = `
-        Generate a simple project roadmap for: "${currentIdea?.text}"
-        Format as a concise paragraph.
-      `;
-      const roadmapResponse = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: roadmapPrompt }],
-        max_tokens: 100,
-      });
-      const roadmap = roadmapResponse.choices[0].message.content || "Roadmap generation failed.";
-      setRoadmap(roadmap);
-
+      console.log("Project saved successfully:", projectData);
       setIsQuizOpen(false);
+      router.push("/dashboard/projects"); // Redirect to projects page
     } catch (error) {
       console.error("Error saving project:", error);
-      alert("Failed to save project. Please try again.");
+      alert("Failed to save project. Please check your database setup and try again.");
     } finally {
       setIsSaving(false);
     }
@@ -398,14 +393,6 @@ export default function CreateProjectPage() {
           </CardFooter>
         </Card>
       </div>
-
-      {/* Roadmap Display */}
-      {roadmap && (
-        <div className="mt-8 p-4 border rounded-lg bg-gray-50">
-          <h2 className="text-2xl font-bold mb-2">Project Roadmap</h2>
-          <p className="text-gray-700">{roadmap}</p>
-        </div>
-      )}
 
       {/* Quiz Modal */}
       <Dialog open={isQuizOpen} onOpenChange={setIsQuizOpen}>
