@@ -21,22 +21,43 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useDropzone } from "react-dropzone";
+import mammoth from "mammoth"; // For reading .docx files
+import axios from "axios"; // For ChatGPT API calls
 
 interface ResearchPaper {
   id: number;
   title: string;
-  details: string; // Used as description
+  details: string;
   status: "unpublished" | "published";
   created_at: string;
-  // Add pages or completion fields if needed later
 }
 
 export default function ResearchPage() {
   const [researchPapers, setResearchPapers] = useState<ResearchPaper[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openModal, setOpenModal] = useState(false);
+  const [projectDescription, setProjectDescription] = useState("");
+  const [suggestedVenues, setSuggestedVenues] = useState<string[]>([]);
+  const [selectedVenue, setSelectedVenue] = useState("");
+  const [selectedFormat, setSelectedFormat] = useState("");
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [convertedContent, setConvertedContent] = useState("");
+  const [publishingCost, setPublishingCost] = useState<string | null>(null);
   const router = useRouter();
 
-  // Array of colors for research paper cards
   const cardColors = [
     { bg: "bg-purple-500/10", border: "border-purple-500/20", progress: "bg-purple-500" },
     { bg: "bg-indigo-500/10", border: "border-indigo-500/20", progress: "bg-indigo-500" },
@@ -77,6 +98,73 @@ export default function ResearchPage() {
     fetchResearchPapers();
   }, [router]);
 
+  // Suggest publication venues based on project description
+  const suggestVenues = () => {
+    const keywords = projectDescription.toLowerCase();
+    let suggestions: string[] = [];
+    if (keywords.includes("computer") || keywords.includes("software")) {
+      suggestions = ["IEEE Transactions", "Springer Computer Science", "arXiv"];
+    } else if (keywords.includes("biology") || keywords.includes("health")) {
+      suggestions = ["Nature", "PLOS ONE", "BioMed Central"];
+    } else {
+      suggestions = ["arXiv", "Springer Open", "Generic Open Access Journal"];
+    }
+    setSuggestedVenues(suggestions);
+  };
+
+  // Handle file upload
+  const { getRootProps, getInputProps } = useDropzone({
+    accept: { "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"] },
+    onDrop: (acceptedFiles) => {
+      setUploadedFile(acceptedFiles[0]);
+    },
+  });
+
+  // Convert .docx to text and then to desired format using ChatGPT
+  const convertToFormat = async () => {
+    if (!uploadedFile || !selectedFormat) return;
+
+    // Extract text from .docx
+    const arrayBuffer = await uploadedFile.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    const rawText = result.value;
+
+    // Call ChatGPT API to convert text to selected format
+    try {
+      const response = await axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-3.5-turbo",
+          messages: [
+            {
+              role: "user",
+              content: `Convert the following research paper content into ${selectedFormat} format:\n\n${rawText}`,
+            },
+          ],
+        },
+        {
+          headers: {
+            Authorization: `Bearer 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`, // Replace with your API key
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      setConvertedContent(response.data.choices[0].message.content);
+
+      // Estimate publishing cost (hardcoded for simplicity, could be fetched from websites)
+      const costs: { [key: string]: string } = {
+        "IEEE Transactions": "$1000-$2000",
+        "Springer Computer Science": "$1500-$3000",
+        "arXiv": "Free",
+        "Nature": "$2000-$5000",
+        "PLOS ONE": "$1500",
+      };
+      setPublishingCost(costs[selectedVenue] || "Varies by journal");
+    } catch (error) {
+      console.error("Error converting content:", error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
@@ -92,10 +180,91 @@ export default function ResearchPage() {
           <h1 className="text-3xl font-bold tracking-tight">Research Papers</h1>
           <p className="text-muted-foreground">Manage your research papers and track their progress.</p>
         </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Research Paper
-        </Button>
+        <Dialog open={openModal} onOpenChange={setOpenModal}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Research Paper
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create a New Research Paper</DialogTitle>
+              <DialogDescription>
+                Learn where to publish your work and convert it to the desired format.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p>
+                You can publish your research in academic journals (e.g., IEEE, Springer, Nature), open-access platforms
+                (e.g., arXiv, PLOS ONE), or university repositories. Tell us about your project to get suggestions!
+              </p>
+              <div>
+                <Label htmlFor="projectDescription">Project Description</Label>
+                <Textarea
+                  id="projectDescription"
+                  value={projectDescription}
+                  onChange={(e) => setProjectDescription(e.target.value)}
+                  placeholder="Briefly describe your research (e.g., topic, field)..."
+                />
+                <Button onClick={suggestVenues} className="mt-2">Suggest Venues</Button>
+              </div>
+              {suggestedVenues.length > 0 && (
+                <div>
+                  <Label>Suggested Publication Venues</Label>
+                  <Select onValueChange={setSelectedVenue}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a venue" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {suggestedVenues.map((venue) => (
+                        <SelectItem key={venue} value={venue}>
+                          {venue}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {selectedVenue && (
+                <div>
+                  <Label>Select Format</Label>
+                  <Select onValueChange={setSelectedFormat}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="IEEE">IEEE</SelectItem>
+                      <SelectItem value="APA">APA</SelectItem>
+                      <SelectItem value="Springer">Springer</SelectItem>
+                      <SelectItem value="Springer">Copywrite</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {selectedFormat && (
+                <div>
+                  <Label>Upload Your Work (.docx)</Label>
+                  <div {...getRootProps()} className="border-dashed border-2 p-4 text-center">
+                    <input {...getInputProps()} />
+                    <p>Drag & drop your .docx file here, or click to select</p>
+                  </div>
+                  {uploadedFile && <p>Uploaded: {uploadedFile.name}</p>}
+                  <Button onClick={convertToFormat} className="mt-2">
+                    Convert to {selectedFormat}
+                  </Button>
+                </div>
+              )}
+              {convertedContent && (
+                <div>
+                  <Label>Converted Content</Label>
+                  <Textarea value={convertedContent} readOnly className="h-40" />
+                  {publishingCost && <p>Estimated Publishing Cost: {publishingCost}</p>}
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {researchPapers.length === 0 ? (
@@ -107,8 +276,6 @@ export default function ResearchPage() {
           {researchPapers.map((paper, i) => {
             const colorIndex = i % cardColors.length;
             const colors = cardColors[colorIndex];
-
-            // Completion: 100% if published, otherwise estimate (add a pages/completion field later if needed)
             const completion = paper.status === "published" ? 100 : 50;
 
             return (
