@@ -18,3 +18,22 @@ Web development
 
 ## Problem ✒
 Managing project ideation, execution, and research paper development is complicated by disjointed tools, lack of originality checks, and inefficient workflows.
+
+## Solution 🏆
+InnovateEasy provides an AI-driven, all-in-one platform for seamless project idea generation, management, and research paper development with originality checks and automated workflows
+
+## Introduction to Innovate Easy 💥
+InnovateEasy is a full-stack web platform designed to simplify the journey from ideation to completion for projects and research papers. Powered by AI, it offers tailored solutions, streamlined management, and originality assurance in one intuitive interface.
+
+## Technology Stack 👨‍💻
+- <b> Node.js
+-<b> Next.js
+-<b> Tailwind CSS
+-<b> Javascript
+-<b> Supabase
+-<b> Vercel
+
+## Future Scope
+- <b> Develop a mobile version for on-the-go access to dashboards, idea generation, and task management.
+- <b> Create a community marketplace where users can share project templates, research ideas, or hire freelancers for implementation.
+- <b>Introduce progress tracking, productivity insights, and predictive timelines using AI to optimize workflows.
