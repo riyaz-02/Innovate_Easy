@@ -34,9 +34,9 @@ InnovateEasy is a full-stack web platform designed to simplify the journey from 
 -Vercel
 
 ## Future Scope
--<br>Develop a mobile version for on-the-go access to dashboards, idea generation, and task management.<br>
--<br>Create a community marketplace where users can share project templates, research ideas, or hire freelancers for implementation.<br>
--<br>Introduce progress tracking, productivity insights, and predictive timelines using AI to optimize workflows.<br>
+-Develop a mobile version for on-the-go access to dashboards, idea generation, and task management.
+<br>-Create a community marketplace where users can share project templates, research ideas, or hire freelancers for implementation.<br>
+<br>-Introduce progress tracking, productivity insights, and predictive timelines using AI to optimize workflows.<br>
 
 ## Conclusion 🔥
 Innovate Easy empowers users to effortlessly ideate, manage, and complete projects and research with AI-driven precision, setting the stage for a more creative and productive future.
