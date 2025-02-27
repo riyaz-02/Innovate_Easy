@@ -129,7 +129,7 @@ export default function ViewProjectPage() {
         Description: [description]
         Guideline: [completion_guideline]
         Status: pending
-        ---
+        [Separate each step with two newlines (\n\n)]
       `;
 
       const response = await openai.chat.completions.create({
@@ -141,13 +141,13 @@ export default function ViewProjectPage() {
       const result = response.choices[0].message.content || "";
       console.log("Roadmap Generation Response:", result);
 
-      // Split by "---" and trim whitespace/newlines
-      const stepBlocks = result.split("---").filter(block => block.trim() !== "");
+      // Split by double newline (\n\n) instead of "---"
+      const stepBlocks = result.split(/\n\n/).filter(block => block.trim().startsWith("Step"));
       console.log("Step Blocks After Split:", stepBlocks);
 
-      const steps = stepBlocks.map((block, index) => {
-        const lines = block.trim().split("\n").filter(line => line.trim() !== "");
-        console.log(`Parsing Step Block ${index + 1}:`, lines);
+      const steps = stepBlocks.map((block) => {
+        const lines = block.split("\n").filter(line => line.trim() !== "");
+        console.log("Parsing Step Block:", lines);
 
         const stepMatch = lines[0]?.match(/Step (\d+): (.+)/);
         const descMatch = lines[1]?.match(/Description: (.+)/);
@@ -156,13 +156,13 @@ export default function ViewProjectPage() {
 
         return {
           project_id: parseInt(id as string),
-          step_name: stepMatch ? stepMatch[2] : `Step ${index + 1}`,
+          step_name: stepMatch ? stepMatch[2] : "Unnamed Step",
           description: descMatch ? descMatch[1] : "No description provided",
           completion_guideline: guideMatch ? guideMatch[1] : "No guideline provided",
           status: (statusMatch ? statusMatch[1] : "pending") as "pending" | "completed",
-          position: stepMatch ? parseInt(stepMatch[1]) : index + 1,
+          position: stepMatch ? parseInt(stepMatch[1]) : 0,
         };
-      });
+      }).filter(step => step.position > 0);
 
       console.log("Parsed Steps Before Insert:", steps);
 
