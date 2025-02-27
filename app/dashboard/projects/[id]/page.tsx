@@ -8,8 +8,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Calendar, CheckCircle, Home, List, Map } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, Bell, CheckCircle, Home, List, Map } from "lucide-react";
 import OpenAI from "openai";
+import { google } from "googleapis";
 
 const openai = new OpenAI({
   apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
@@ -42,20 +44,32 @@ interface RoadmapStep {
   position: number;
 }
 
+interface Reminder {
+  id: number;
+  project_id: number;
+  user_id: string;
+  reminder_date: string;
+  message: string;
+}
+
 export default function ViewProjectPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [roadmapSteps, setRoadmapSteps] = useState<RoadmapStep[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
   const [selectedStep, setSelectedStep] = useState<RoadmapStep | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [newReminder, setNewReminder] = useState({ date: "", message: "" });
   const router = useRouter();
   const { id } = useParams();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab") || "info";
+  const tokens = searchParams.get("tokens") ? JSON.parse(decodeURIComponent(searchParams.get("tokens")!)) : null;
 
   useEffect(() => {
-    const fetchProjectAndRoadmap = async () => {
+    const fetchProjectAndData = async () => {
       try {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError || !user) {
@@ -86,8 +100,19 @@ export default function ViewProjectPage() {
 
         if (roadmapError) throw roadmapError;
         setRoadmapSteps(roadmapData || []);
+
+        const { data: reminderData, error: reminderError } = await supabase
+          .from("reminders")
+          .select("*")
+          .eq("project_id", id)
+          .eq("user_id", user.id);
+
+        if (reminderError) throw reminderError;
+        setReminders(reminderData || []);
+
         console.log("Fetched Project:", projectData);
         console.log("Fetched Roadmap Steps:", roadmapData);
+        console.log("Fetched Reminders:", reminderData);
       } catch (error) {
         console.error("Fetch Error:", error);
         router.push("/dashboard/projects");
@@ -96,7 +121,7 @@ export default function ViewProjectPage() {
       }
     };
 
-    fetchProjectAndRoadmap();
+    fetchProjectAndData();
   }, [id, router]);
 
   const handleBack = () => {
@@ -141,7 +166,6 @@ export default function ViewProjectPage() {
       const result = response.choices[0].message.content || "";
       console.log("Roadmap Generation Response:", result);
 
-      // Split by double newline (\n\n) instead of "---"
       const stepBlocks = result.split(/\n\n/).filter(block => block.trim().startsWith("Step"));
       console.log("Step Blocks After Split:", stepBlocks);
 
@@ -166,7 +190,6 @@ export default function ViewProjectPage() {
 
       console.log("Parsed Steps Before Insert:", steps);
 
-      // Insert all steps into Supabase
       const { data, error } = await supabase.from("roadmap_steps").insert(steps).select();
       if (error) {
         console.error("Supabase Insert Error:", error);
@@ -248,6 +271,77 @@ export default function ViewProjectPage() {
     }
   };
 
+  const handleAddToGoogleCalendar = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user logged in");
+
+      const reminder = {
+        project_id: parseInt(id as string),
+        user_id: user.id,
+        reminder_date: newReminder.date,
+        message: newReminder.message,
+      };
+
+      const { data, error } = await supabase.from("reminders").insert(reminder).select().single();
+      if (error) {
+        console.error("Supabase Insert Error:", error);
+        throw error;
+      }
+
+      // Redirect to Google OAuth if no tokens
+      if (!tokens) {
+        window.location.href = `/api/auth/google?projectId=${id}`;
+        return;
+      }
+
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_SECRET,
+        process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI
+      );
+      oauth2Client.setCredentials(tokens);
+
+      const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+
+      const event = {
+        summary: `Deadline: ${project?.name}`,
+        description: newReminder.message,
+        start: {
+          dateTime: new Date(newReminder.date).toISOString(),
+          timeZone: "UTC",
+        },
+        end: {
+          dateTime: new Date(new Date(newReminder.date).getTime() + 60 * 60 * 1000).toISOString(), // 1 hour event
+          timeZone: "UTC",
+        },
+        reminders: {
+          useDefault: false,
+          overrides: [
+            { method: "email", minutes: 24 * 60 }, // 1 day before
+            { method: "popup", minutes: 10 }, // 10 minutes before
+          ],
+        },
+      };
+
+      await calendar.events.insert({
+        calendarId: "primary",
+        resource: event,
+      });
+
+      setReminders((prev) => [...prev, data]);
+      setNewReminder({ date: "", message: "" });
+      alert("Event added to Google Calendar!");
+    } catch (error) {
+      console.error("Error adding to Google Calendar:", error);
+      alert("Failed to add event to Google Calendar. Please try again.");
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    console.log("Notes saved:", notes);
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
@@ -298,7 +392,7 @@ export default function ViewProjectPage() {
                 Roadmap
               </TabsTrigger>
               <TabsTrigger value="reminder">
-                <Calendar className="h-4 w-4 mr-2" />
+                <Bell className="h-4 w-4 mr-2" />
                 Reminder
               </TabsTrigger>
             </TabsList>
@@ -437,12 +531,17 @@ export default function ViewProjectPage() {
                     onClick={() => handleStepClick(step)}
                   >
                     <div
-                      className={`w-1/2 p-4 ${index % 2 === 0 ? "pr-8 text-right" : "pl-8 text-left"}`}
+                      className={`w-1/2 p-4 rounded-lg shadow-md transition-all duration-300 hover:shadow-lg ${
+                        step.status === "completed"
+                          ? "bg-green-100 border-green-300 text-green-800"
+                          : "bg-blue-50 border-blue-200 text-blue-800"
+                      } border ${index % 2 === 0 ? "pr-8 text-right" : "pl-8 text-left"}`}
                     >
                       <div className="flex items-center gap-2">
                         <Checkbox
                           checked={step.status === "completed"}
                           onCheckedChange={() => handleToggleTask(step.id, step.status)}
+                          className={step.status === "completed" ? "text-green-600" : "text-blue-600"}
                         />
                         <p className="text-lg font-medium">{step.step_name}</p>
                       </div>
@@ -460,7 +559,60 @@ export default function ViewProjectPage() {
           </TabsContent>
 
           <TabsContent value="reminder" className="space-y-6">
-            <p className="text-muted-foreground text-lg">Reminder setup coming soon...</p>
+            <div>
+              <h2 className="text-2xl font-bold">Reminders</h2>
+              <p className="text-sm text-muted-foreground">Set up reminders for your project in Google Calendar</p>
+            </div>
+
+            {/* Reminder Setup Form */}
+            <div className="space-y-4 border p-4 rounded-lg">
+              <h3 className="text-lg font-semibold">Set Project Deadline</h3>
+              <div>
+                <label className="text-sm text-muted-foreground">Deadline Date</label>
+                <Input
+                  type="datetime-local"
+                  value={newReminder.date}
+                  onChange={(e) => setNewReminder({ ...newReminder, date: e.target.value })}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground">Message</label>
+                <Textarea
+                  value={newReminder.message}
+                  onChange={(e) => setNewReminder({ ...newReminder, message: e.target.value })}
+                  placeholder="e.g., Finish project by this date"
+                  className="w-full h-24"
+                />
+              </div>
+              <Button
+                variant="default"
+                onClick={handleAddToGoogleCalendar}
+                disabled={!newReminder.date || !newReminder.message}
+              >
+                Add to Google Calendar
+              </Button>
+            </div>
+
+            {/* Existing Reminders */}
+            {reminders.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Scheduled Reminders</h3>
+                <ul className="space-y-2">
+                  {reminders.map((reminder) => (
+                    <li key={reminder.id} className="p-2 border rounded flex justify-between items-center">
+                      <div>
+                        <p className="text-sm font-medium">{reminder.message}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(reminder.reminder_date).toLocaleString()}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="flex justify-end">
               <Button variant="outline" onClick={handleBack}>
                 Back
