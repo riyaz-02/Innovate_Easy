@@ -270,55 +270,7 @@ export default function ViewProjectPage() {
     }
   };
 
-  const handleAddToGoogleCalendar = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No user logged in");
-
-      const reminder = {
-        project_id: parseInt(id as string),
-        user_id: user.id,
-        reminder_date: newReminder.date,
-        message: newReminder.message,
-      };
-
-      const { data, error } = await supabase.from("reminders").insert(reminder).select().single();
-      if (error) {
-        console.error("Supabase Insert Error:", error);
-        throw error;
-      }
-
-      // Redirect to Google OAuth if no tokens
-      if (!tokens) {
-        window.location.href = `/api/add-to-calender?projectId=${id}`;
-        return;
-      }
-
-      // Call server-side API to add event
-      const response = await fetch("/api/add-to-calendar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tokens,
-          summary: `Deadline: ${project?.name}`,
-          description: newReminder.message,
-          startDateTime: new Date(newReminder.date).toISOString(),
-        }),
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to add event to Google Calendar");
-      }
-
-      setReminders((prev) => [...prev, data]);
-      setNewReminder({ date: "", message: "" });
-      alert("Event added to Google Calendar!");
-    } catch (error) {
-      console.error("Error adding to Google Calendar:", error);
-      alert("Failed to add event to Google Calendar. Please try again.");
-    }
-  };
+  
 
   const handleSaveNotes = async () => {
     console.log("Notes saved:", notes);
