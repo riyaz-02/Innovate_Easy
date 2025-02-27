@@ -11,7 +11,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Bell, CheckCircle, Home, List, Map } from "lucide-react";
 import OpenAI from "openai";
-import { google } from "googleapis";
 
 const openai = new OpenAI({
   apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
@@ -291,43 +290,26 @@ export default function ViewProjectPage() {
 
       // Redirect to Google OAuth if no tokens
       if (!tokens) {
-        window.location.href = `/api/auth/google?projectId=${id}`;
+        window.location.href = `/api/add-to-calender?projectId=${id}`;
         return;
       }
 
-      const oauth2Client = new google.auth.OAuth2(
-        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_SECRET,
-        process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI
-      );
-      oauth2Client.setCredentials(tokens);
-
-      const calendar = google.calendar({ version: "v3", auth: oauth2Client });
-
-      const event = {
-        summary: `Deadline: ${project?.name}`,
-        description: newReminder.message,
-        start: {
-          dateTime: new Date(newReminder.date).toISOString(),
-          timeZone: "UTC",
-        },
-        end: {
-          dateTime: new Date(new Date(newReminder.date).getTime() + 60 * 60 * 1000).toISOString(), // 1 hour event
-          timeZone: "UTC",
-        },
-        reminders: {
-          useDefault: false,
-          overrides: [
-            { method: "email", minutes: 24 * 60 }, // 1 day before
-            { method: "popup", minutes: 10 }, // 10 minutes before
-          ],
-        },
-      };
-
-      await calendar.events.insert({
-        calendarId: "primary",
-        resource: event,
+      // Call server-side API to add event
+      const response = await fetch("/api/add-to-calendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tokens,
+          summary: `Deadline: ${project?.name}`,
+          description: newReminder.message,
+          startDateTime: new Date(newReminder.date).toISOString(),
+        }),
       });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to add event to Google Calendar");
+      }
 
       setReminders((prev) => [...prev, data]);
       setNewReminder({ date: "", message: "" });
