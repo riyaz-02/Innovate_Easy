@@ -34,7 +34,7 @@ export function MainNav() {
     <div className="flex justify-between items-center py-4 md:py-6">
       <div className="flex items-center gap-6 md:gap-10">
         <Link href="/" className="flex items-center space-x-2">
-          <span className="font-bold text-xl md:text-2xl">ResearchHub</span>
+          <span className="font-bold text-xl md:text-2xl">Innovate Easy</span>
         </Link>
         <nav className="hidden md:flex gap-6">
           {routes.map((route) => (

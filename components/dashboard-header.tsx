@@ -1,8 +1,11 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { ModeToggle } from "@/components/mode-toggle"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient"; // Import Supabase client
+import { Button } from "@/components/ui/button";
+import { ModeToggle } from "@/components/mode-toggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,12 +13,69 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { LogOut, Menu, Settings, User } from "lucide-react"
-import { useState } from "react"
+} from "@/components/ui/dropdown-menu";
+import { LogOut, Menu, Settings, User } from "lucide-react";
+import { useToast } from "@/hooks/use-toast"; // For toast notifications
 
 export function DashboardHeader() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+
+        if (error) {
+          console.error("Error fetching user:", error);
+          throw error;
+        }
+
+        if (!user) {
+          console.log("No user logged in, redirecting to login");
+          router.push("/login");
+          return;
+        }
+
+        const name = user.user_metadata?.name || "User";
+        const email = user.email || "No email";
+        console.log("Logged-in User:", { id: user.id, name, email });
+        setUserName(name);
+        setUserEmail(email);
+      } catch (error) {
+        console.error("User Fetch Error:", error);
+        router.push("/login");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, [router]);
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Logout Error:", error);
+        throw error;
+      }
+
+      toast({ title: "Success", description: "Logged out successfully" });
+      router.push("/login");
+    } catch (error: any) {
+      console.error("Logout Error:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to log out",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background">
@@ -31,7 +91,7 @@ export function DashboardHeader() {
             <span className="sr-only">Toggle menu</span>
           </Button>
           <Link href="/dashboard" className="flex items-center space-x-2">
-            <span className="font-bold text-xl">ResearchHub</span>
+            <span className="font-bold text-xl">Innovate Easy</span>
           </Link>
         </div>
         <div className="flex items-center gap-2">
@@ -46,8 +106,17 @@ export function DashboardHeader() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">John Doe</p>
-                  <p className="text-xs text-muted-foreground">john.doe@example.com</p>
+                  {loading ? (
+                    <>
+                      <p className="text-sm font-medium">Loading...</p>
+                      <p className="text-xs text-muted-foreground">Loading...</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium">{userName}</p>
+                      <p className="text-xs text-muted-foreground">{userEmail}</p>
+                    </>
+                  )}
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -64,17 +133,14 @@ export function DashboardHeader() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
-                </Link>
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
     </header>
-  )
+  );
 }
-

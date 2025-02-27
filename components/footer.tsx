@@ -10,7 +10,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
             <Link href="/" className="flex items-center space-x-2">
-              <span className="font-bold text-xl">ResearchHub</span>
+              <span className="font-bold text-xl">Innovate Easy</span>
             </Link>
             <p className="text-sm text-muted-foreground">
               Streamline your projects and research papers with our comprehensive management platform.
@@ -104,7 +104,7 @@ export function Footer() {
         </div>
         <div className="border-t mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} ResearchHub. All rights reserved.
+            &copy; {new Date().getFullYear()} Innovate Easy. All rights reserved.
           </p>
           <div className="flex space-x-4 mt-4 md:mt-0">
             <Link href="#" className="text-xs text-muted-foreground hover:text-foreground">

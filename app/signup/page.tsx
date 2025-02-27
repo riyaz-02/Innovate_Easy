@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react"; // Added useEffect for debugging
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient"; // Import Supabase client
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,24 +20,19 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
-    fullName: "",
+    fullName: "Gaurav Mehta",
     email: "",
     password: "",
-    confirmPassword: "",
+    confirmPassword: "123456",
     terms: false,
   });
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
-  // Debug state changes
-  useEffect(() => {
-    console.log("Current Form Data:", formData);
-  }, [formData]);
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value, type, checked } = e.target;
-    const normalizedId = id.replace(/-/g, ""); // e.g., "full-name" -> "fullName"
+    const normalizedId = id.replace(/-/g, "");
     console.log(`Updating ${normalizedId} to ${type === "checkbox" ? checked : value}`);
     setFormData((prev) => ({
       ...prev,
@@ -45,84 +41,63 @@ export default function SignupPage() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); // Prevent default form submission
-    console.log("Form Submitted, Preventing Default");
+    e.preventDefault();
     setLoading(true);
 
     console.log("Submitting Form Data:", formData);
 
-    // Validation
     if (!formData.fullName) {
-      toast({
-        title: "Error",
-        description: "Full name is required",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Full name is required", variant: "destructive" });
       setLoading(false);
       return;
     }
     if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid email address",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Please enter a valid email address", variant: "destructive" });
       setLoading(false);
       return;
     }
     if (!formData.password || formData.password.length < 6) {
-      toast({
-        title: "Error",
-        description: "Password must be at least 6 characters",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
       setLoading(false);
       return;
     }
     if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords do not match",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Passwords do not match", variant: "destructive" });
       setLoading(false);
       return;
     }
     if (!formData.terms) {
-      toast({
-        title: "Error",
-        description: "You must agree to the terms and privacy policy",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "You must agree to the terms and privacy policy", variant: "destructive" });
       setLoading(false);
       return;
     }
 
     try {
-      const payload = {
+      const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
-        name: formData.fullName,
-      };
-      console.log("Sending to API:", payload);
-
-      const response = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        options: { data: { name: formData.fullName } },
       });
 
-      const data = await response.json();
-      console.log("API Response:", { status: response.status, data });
-
-      if (!response.ok) {
-        throw new Error(data.error || "Signup failed");
+      if (error) {
+        console.error("Supabase Signup Error:", error);
+        throw error;
       }
 
-      toast({
-        title: "Success",
-        description: "Account created successfully! Please log in.",
+      // Insert into profiles table
+      const { error: profileError } = await supabase.from("profiles").insert({
+        id: data.user?.id,
+        email: formData.email,
+        name: formData.fullName,
       });
+
+      if (profileError) {
+        console.error("Profile Insert Error:", profileError);
+        throw profileError;
+      }
+
+      console.log("Signup Success:", data);
+      toast({ title: "Success", description: "Account created successfully! Please log in." });
       router.push("/login");
     } catch (error: any) {
       console.error("Signup Error:", error);
@@ -166,7 +141,7 @@ export default function SignupPage() {
                 placeholder="John Doe"
                 value={formData.fullName}
                 onChange={handleInputChange}
-                //required
+                required
               />
             </div>
             <div className="space-y-2">
@@ -214,7 +189,7 @@ export default function SignupPage() {
                 placeholder="••••••••"
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
-                //required
+                required
               />
             </div>
             <div className="flex items-center space-x-2">
