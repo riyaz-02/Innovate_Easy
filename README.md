@@ -26,26 +26,34 @@ InnovateEasy provides an AI-driven, all-in-one platform for seamless project ide
 InnovateEasy is a full-stack web platform designed to simplify the journey from ideation to completion for projects and research papers. Powered by AI, it offers tailored solutions, streamlined management, and originality assurance in one intuitive interface.
 
 ## Technology Stack 👨‍💻
--<b> Node.js
--<b> Next.js
--<b> Tailwind CSS
--<b> Javascript
--<b> Supabase
--<b> Vercel
+-Node.js
+-Next.js
+-Tailwind CSS
+-Javascript
+-Supabase
+-Vercel
 
 ## Future Scope
--<br> Develop a mobile version for on-the-go access to dashboards, idea generation, and task management.<br>
--<br> Create a community marketplace where users can share project templates, research ideas, or hire freelancers for implementation.<br>
--<br>Introduce progress tracking, productivity insights, and predictive timelines using AI to optimize workflows. <br>
+-Develop a mobile version for on-the-go access to dashboards, idea generation, and task management.
+<br>-Create a community marketplace where users can share project templates, research ideas, or hire freelancers for implementation.
+<br>-Introduce progress tracking, productivity insights, and predictive timelines using AI to optimize workflows.
 
 ## Conclusion 🔥
-InnovateEasy empowers users to effortlessly ideate, manage, and complete projects and research with AI-driven precision, setting the stage for a more creative and productive future.
+Innovate Easy empowers users to effortlessly ideate, manage, and complete projects and research with AI-driven precision, setting the stage for a more creative and productive future.
 
 
 ## Developers 🙇‍♂👨‍💻
 <table align="center">
   <tbody>
   	<tr>
+      <td align="center" valign="top" style="width:25%" border-radius="5%">
+        <a href="https://github.com/Ronit1909-ops">
+          <img width="100" height="100" src="https://avatars.githubusercontent.com/u/121333212?v=4">
+        </a>
+        <br>
+        <a href="https://github.com/Ronit1909-ops">Ronit Pal</a>
+        <div>Author</div>
+      </td>
       <td align="center" valign="top" style="width:25%" border-radius="5%">
         <a href="https://github.com/riyaz-02">
           <img width="100" height="100" src="https://avatars.githubusercontent.com/u/77242659?s=400&u=bbd628c69a2dfa84e197fe0ca8ccc6113792f099&v=4">
@@ -60,14 +68,6 @@ InnovateEasy empowers users to effortlessly ideate, manage, and complete project
         </a>
         <br>
         <a href="https://github.com/priyanshu3082">Priyanshu Nayan</a>
-        <div>Author</div>
-      </td>
-      <td align="center" valign="top" style="width:25%" border-radius="5%">
-        <a href="https://github.com/Ronit1909-ops">
-          <img width="100" height="100" src="https://avatars.githubusercontent.com/u/121333212?v=4">
-        </a>
-        <br>
-        <a href="https://github.com/Ronit1909-ops">Ronit Pal</a>
         <div>Author</div>
       </td>
     </tr>
