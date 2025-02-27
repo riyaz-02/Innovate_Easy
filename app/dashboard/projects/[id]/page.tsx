@@ -288,8 +288,8 @@ export default function ViewProjectPage() {
       const { data, error } = await supabase.from("reminders").insert(reminder).select().single();
       if (error) throw error;
 
-      // Send email via API
-      const emailResponse = await fetch("/api/send-email", {
+      // Send email via SMTP API route
+      const emailResponse = await fetch("/api/send-smtp-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -305,12 +305,11 @@ export default function ViewProjectPage() {
       setNewReminder({ date: "", message: "", isRecurring: false, interval: "" });
     } catch (error) {
       console.error("Error adding reminder:", error);
-      alert("Failed to add reminder. Please try again.");
+      alert("Failed to add reminder. Check your SMTP setup and try again.");
     }
   };
 
   const handleSaveNotes = async () => {
-    // Placeholder for saving notes (could persist to Supabase if needed)
     console.log("Notes saved:", notes);
   };
 
@@ -504,16 +503,18 @@ export default function ViewProjectPage() {
                   >
                     <div
                       className={`w-1/2 p-4 rounded-lg shadow-md transition-all duration-300 hover:shadow-lg ${
-                        step.status === "completed" ? "bg-green-100 border-green-300" : "bg-blue-50 border-blue-200"
+                        step.status === "completed"
+                          ? "bg-green-100 border-green-300 text-green-800"
+                          : "bg-blue-50 border-blue-200 text-blue-800"
                       } border ${index % 2 === 0 ? "pr-8 text-right" : "pl-8 text-left"}`}
                     >
                       <div className="flex items-center gap-2">
                         <Checkbox
                           checked={step.status === "completed"}
                           onCheckedChange={() => handleToggleTask(step.id, step.status)}
-                          className="text-green-600"
+                          className={step.status === "completed" ? "text-green-600" : "text-blue-600"}
                         />
-                        <p className="text-lg font-medium text-gray-800">{step.step_name}</p>
+                        <p className="text-lg font-medium">{step.step_name}</p>
                       </div>
                     </div>
                   </div>
