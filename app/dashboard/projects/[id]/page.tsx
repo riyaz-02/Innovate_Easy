@@ -9,9 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Bell, CheckCircle, Home, List, Map } from "lucide-react";
+import { ArrowLeft, Bell, CheckCircle, Home, List, Map, Clock } from "lucide-react";
 import OpenAI from "openai";
-import { google } from "googleapis";
 
 const openai = new OpenAI({
   apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
@@ -61,12 +60,17 @@ export default function ViewProjectPage() {
   const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
   const [selectedStep, setSelectedStep] = useState<RoadmapStep | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [newReminder, setNewReminder] = useState({ date: "", message: "" });
+  const [timerActive, setTimerActive] = useState(false);
+  const [sessionTime, setSessionTime] = useState(0); // Time in seconds
+  const [breakInterval, setBreakInterval] = useState(40); // Default 40 minutes in minutes
+  const [focusMinInterval, setFocusMinInterval] = useState(5); // Default min 5 minutes in minutes
+  const [focusMaxInterval, setFocusMaxInterval] = useState(10); // Default max 10 minutes in minutes
+  const [lastBreakTime, setLastBreakTime] = useState(0); // Time of last break in seconds
+  const [nextFocusTime, setNextFocusTime] = useState<number | null>(null); // Time of next focus reminder in seconds
   const router = useRouter();
   const { id } = useParams();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab") || "info";
-  const tokens = searchParams.get("tokens") ? JSON.parse(decodeURIComponent(searchParams.get("tokens")!)) : null;
 
   useEffect(() => {
     const fetchProjectAndData = async () => {
@@ -101,18 +105,9 @@ export default function ViewProjectPage() {
         if (roadmapError) throw roadmapError;
         setRoadmapSteps(roadmapData || []);
 
-        const { data: reminderData, error: reminderError } = await supabase
-          .from("reminders")
-          .select("*")
-          .eq("project_id", id)
-          .eq("user_id", user.id);
-
-        if (reminderError) throw reminderError;
-        setReminders(reminderData || []);
 
         console.log("Fetched Project:", projectData);
         console.log("Fetched Roadmap Steps:", roadmapData);
-        console.log("Fetched Reminders:", reminderData);
       } catch (error) {
         console.error("Fetch Error:", error);
         router.push("/dashboard/projects");
@@ -123,6 +118,29 @@ export default function ViewProjectPage() {
 
     fetchProjectAndData();
   }, [id, router]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timerActive) {
+      interval = setInterval(() => {
+        setSessionTime((prev) => prev + 1);
+
+        // Check for break reminder
+        const breakIntervalSeconds = breakInterval * 60;
+        if (sessionTime - lastBreakTime >= breakIntervalSeconds) {
+          alert(`Time for a break! You've been working for ${breakInterval} minutes.`);
+          setLastBreakTime(sessionTime);
+        }
+
+        // Check for focus reminder
+        if (nextFocusTime !== null && sessionTime >= nextFocusTime) {
+          alert("Stay focused! Take a moment to concentrate on your task.");
+          setNextFocusTime(generateRandomFocusTime(focusMinInterval, focusMaxInterval));
+        }
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, sessionTime, breakInterval, focusMinInterval, focusMaxInterval, lastBreakTime, nextFocusTime]);
 
   const handleBack = () => {
     router.push("/dashboard/projects");
@@ -271,71 +289,19 @@ export default function ViewProjectPage() {
     }
   };
 
-  const handleAddToGoogleCalendar = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No user logged in");
-
-      const reminder = {
-        project_id: parseInt(id as string),
-        user_id: user.id,
-        reminder_date: newReminder.date,
-        message: newReminder.message,
-      };
-
-      const { data, error } = await supabase.from("reminders").insert(reminder).select().single();
-      if (error) {
-        console.error("Supabase Insert Error:", error);
-        throw error;
-      }
-
-      // Redirect to Google OAuth if no tokens
-      if (!tokens) {
-        window.location.href = `/api/auth/google?projectId=${id}`;
-        return;
-      }
-
-      const oauth2Client = new google.auth.OAuth2(
-        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_SECRET,
-        process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI
-      );
-      oauth2Client.setCredentials(tokens);
-
-      const calendar = google.calendar({ version: "v3", auth: oauth2Client });
-
-      const event = {
-        summary: `Deadline: ${project?.name}`,
-        description: newReminder.message,
-        start: {
-          dateTime: new Date(newReminder.date).toISOString(),
-          timeZone: "UTC",
-        },
-        end: {
-          dateTime: new Date(new Date(newReminder.date).getTime() + 60 * 60 * 1000).toISOString(), // 1 hour event
-          timeZone: "UTC",
-        },
-        reminders: {
-          useDefault: false,
-          overrides: [
-            { method: "email", minutes: 24 * 60 }, // 1 day before
-            { method: "popup", minutes: 10 }, // 10 minutes before
-          ],
-        },
-      };
-
-      await calendar.events.insert({
-        calendarId: "primary",
-        resource: event,
-      });
-
-      setReminders((prev) => [...prev, data]);
-      setNewReminder({ date: "", message: "" });
-      alert("Event added to Google Calendar!");
-    } catch (error) {
-      console.error("Error adding to Google Calendar:", error);
-      alert("Failed to add event to Google Calendar. Please try again.");
+  const handleStartTimers = () => {
+    setTimerActive(!timerActive);
+    if (!timerActive) {
+      setSessionTime(0);
+      setLastBreakTime(0);
+      setNextFocusTime(generateRandomFocusTime(focusMinInterval, focusMaxInterval));
     }
+  };
+
+  const generateRandomFocusTime = (min: number, max: number) => {
+    const minSeconds = min * 60;
+    const maxSeconds = max * 60;
+    return sessionTime + Math.floor(Math.random() * (maxSeconds - minSeconds + 1)) + minSeconds;
   };
 
   const handleSaveNotes = async () => {
@@ -560,58 +526,93 @@ export default function ViewProjectPage() {
 
           <TabsContent value="reminder" className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold">Reminders</h2>
-              <p className="text-sm text-muted-foreground">Set up reminders for your project in Google Calendar</p>
+              <h2 className="text-2xl font-bold">Reminder System</h2>
+              <p className="text-sm text-muted-foreground">Set up productivity reminders for your project</p>
             </div>
 
-            {/* Reminder Setup Form */}
-            <div className="space-y-4 border p-4 rounded-lg">
-              <h3 className="text-lg font-semibold">Set Project Deadline</h3>
-              <div>
-                <label className="text-sm text-muted-foreground">Deadline Date</label>
-                <Input
-                  type="datetime-local"
-                  value={newReminder.date}
-                  onChange={(e) => setNewReminder({ ...newReminder, date: e.target.value })}
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground">Message</label>
-                <Textarea
-                  value={newReminder.message}
-                  onChange={(e) => setNewReminder({ ...newReminder, message: e.target.value })}
-                  placeholder="e.g., Finish project by this date"
-                  className="w-full h-24"
-                />
-              </div>
+            {/* Start Reminders Button */}
+            <div className="p-6 bg-gray-800 rounded-lg shadow-lg text-white flex flex-col items-center">
               <Button
-                variant="default"
-                onClick={handleAddToGoogleCalendar}
-                disabled={!newReminder.date || !newReminder.message}
+                variant="outline"
+                className="w-48 bg-white text-gray-800 hover:bg-gray-100 mb-4"
+                onClick={handleStartTimers}
               >
-                Add to Google Calendar
+                {timerActive ? "Stop Reminders" : "Start Reminders"}
               </Button>
+              <p className="text-sm text-gray-300">Click to start break and focus reminders</p>
             </div>
 
-            {/* Existing Reminders */}
-            {reminders.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Scheduled Reminders</h3>
-                <ul className="space-y-2">
-                  {reminders.map((reminder) => (
-                    <li key={reminder.id} className="p-2 border rounded flex justify-between items-center">
-                      <div>
-                        <p className="text-sm font-medium">{reminder.message}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(reminder.reminder_date).toLocaleString()}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+            {/* Session Duration */}
+            <div className="p-6 bg-gray-800 rounded-lg shadow-lg text-white flex flex-col items-center">
+              <h3 className="text-lg font-semibold mb-2">Session Duration</h3>
+              <p className="text-3xl font-bold">
+                {Math.floor(sessionTime / 3600).toString().padStart(2, "0")}:
+                {Math.floor((sessionTime % 3600) / 60).toString().padStart(2, "0")}:
+                {(sessionTime % 60).toString().padStart(2, "0")}
+              </p>
+              <p className="text-sm text-gray-300 mt-2">Start the reminder system to begin tracking time</p>
+            </div>
+
+            {/* Break and Focus Settings */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Break Reminder Settings */}
+              <div className="p-6 bg-gray-800 rounded-lg shadow-lg text-white">
+                <h3 className="text-lg font-semibold mb-4">Break Reminder Settings</h3>
+                <div className="space-y-4">
+                  <label className="text-sm text-gray-300">Reminder Interval</label>
+                  <p className="text-sm text-gray-300">How often should we remind you to take a break?</p>
+                  <Input
+                    type="number"
+                    min="10"
+                    max="120"
+                    value={breakInterval}
+                    onChange={(e) => setBreakInterval(parseInt(e.target.value) || 40)}
+                    className="w-24 bg-gray-700 text-white border-gray-600"
+                  />
+                  <p className="text-sm text-gray-300">
+                    You will be reminded to take a break every {breakInterval} minutes while the timer is active.
+                  </p>
+                </div>
               </div>
-            )}
+
+              {/* Focus Reminder Settings */}
+              <div className="p-6 bg-gray-800 rounded-lg shadow-lg text-white">
+                <h3 className="text-lg font-semibold mb-4">Focus Reminder Settings</h3>
+                <div className="space-y-4">
+                  <label className="text-sm text-gray-300">Reminder Frequency</label>
+                  <p className="text-sm text-gray-300">Set the interval range for focus reminders</p>
+                  <div className="flex gap-4">
+                    <div>
+                      <label className="text-sm text-gray-300">Minimum Interval</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="30"
+                        value={focusMinInterval}
+                        onChange={(e) => setFocusMinInterval(parseInt(e.target.value) || 5)}
+                        className="w-24 bg-gray-700 text-white border-gray-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-300">Maximum Interval</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="30"
+                        value={focusMaxInterval}
+                        onChange={(e) => setFocusMaxInterval(parseInt(e.target.value) || 10)}
+                        className="w-24 bg-gray-700 text-white border-gray-600"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-300">
+                    Focus reminders will appear randomly between {focusMinInterval}–{focusMaxInterval} minutes to help you stay on track.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            
 
             <div className="flex justify-end">
               <Button variant="outline" onClick={handleBack}>
