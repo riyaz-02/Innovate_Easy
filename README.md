@@ -1,4 +1,4 @@
-# TechTernity Presents <img src="https://i.postimg.cc/6505W8K0/Techternity-logo.png" width="200" height="100" alt="Techternity Logo">
+# TechTernity Presents <img src="https://i.postimg.cc/6505W8K0/Techternity-logo.png" width="50" height="50" alt="Techternity Logo">
 
 ## Innovate Easy - Where learning meets exploration
 ### FROM VISION TO VICTORY – ALL IN ONE PLACE.
