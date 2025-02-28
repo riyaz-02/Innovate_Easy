@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
@@ -25,10 +25,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox component
+import { Checkbox } from "@/components/ui/checkbox";
 import { useDropzone } from "react-dropzone";
-import mammoth from "mammoth"; // For reading .docx files
-import axios from "axios"; // For API calls
+import mammoth from "mammoth";
+import axios from "axios";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ScholarResult {
@@ -56,16 +56,17 @@ export default function CreateResearchPage() {
     paperType: "",
     domain: "",
     topic: "",
-    customDomain: "", // For custom domain input
+    customDomain: "",
   });
   const [scholarSearchOpen, setScholarSearchOpen] = useState(false);
   const [formatPaperOpen, setFormatPaperOpen] = useState(false);
-  const [checkResultsOpen, setCheckResultsOpen] = useState(false); // Modal for Scholar results
+  const [checkResultsOpen, setCheckResultsOpen] = useState(false);
   const [scholarSearch, setScholarSearch] = useState("");
   const [scholarResults, setScholarResults] = useState<ScholarResult[]>([]);
   const [isFetchingScholar, setIsFetchingScholar] = useState(false);
   const [suggestedVenues, setSuggestedVenues] = useState<string[]>([]);
   const [selectedVenue, setSelectedVenue] = useState("");
+  const [selectedPaperType, setSelectedPaperType] = useState<string>(researchData.paperType || "");
   const [selectedFormat, setSelectedFormat] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [convertedContent, setConvertedContent] = useState("");
@@ -73,8 +74,8 @@ export default function CreateResearchPage() {
   const [publishingCost, setPublishingCost] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"view" | "edit">("view");
   const [loading, setLoading] = useState(false);
-  const [checkedPapers, setCheckedPapers] = useState(false); // State for checkbox
-  const [showConfirmCreate, setShowConfirmCreate] = useState(false); // Confirmation for creating paper
+  const [checkedPapers, setCheckedPapers] = useState(false);
+  const [showConfirmCreate, setShowConfirmCreate] = useState(false);
   const router = useRouter();
 
   const paperTypes = [
@@ -97,6 +98,13 @@ export default function CreateResearchPage() {
     { value: "social_sciences", label: "Social Sciences" },
   ];
 
+  useEffect(() => {
+    // Automatically suggest venues when researchData.domain or customDomain changes
+    if (researchData.domain || researchData.customDomain) {
+      suggestVenues();
+    }
+  }, [researchData.domain, researchData.customDomain]);
+
   const handleResearchQuizNext = () => {
     if (researchQuizStep < 2) setResearchQuizStep(researchQuizStep + 1);
   };
@@ -111,11 +119,14 @@ export default function CreateResearchPage() {
 
   const handleResearchQuizInput = (field: keyof typeof researchData, value: string) => {
     setResearchData((prev) => ({ ...prev, [field]: value }));
+    if (field === "paperType") {
+      setSelectedPaperType(value);
+    }
   };
 
   const handleCheckPapers = async () => {
     if (researchData.topic) {
-      setIsFetchingScholar(true); // Show "Checking..." while fetching
+      setIsFetchingScholar(true);
       await fetchScholarPapers(researchData.topic);
       setCheckResultsOpen(true);
     }
@@ -124,7 +135,7 @@ export default function CreateResearchPage() {
   const handleContinueAfterCheck = () => {
     setCheckedPapers(true);
     setCheckResultsOpen(false);
-    setResearchQuizOpen(true); // Reopen the quiz modal
+    setResearchQuizOpen(true);
   };
 
   const handleCreatePaper = async () => {
@@ -135,7 +146,7 @@ export default function CreateResearchPage() {
       const paperData = {
         user_id: user.id,
         paper_type: researchData.paperType,
-        domain: researchData.domain || researchData.customDomain, // Use custom domain if provided
+        domain: researchData.domain || researchData.customDomain,
         topic: researchData.topic,
         status: "draft" as const,
         created_at: new Date().toISOString(),
@@ -148,7 +159,7 @@ export default function CreateResearchPage() {
       }
 
       console.log("Research paper created successfully:", paperData);
-      router.push("/dashboard/research"); // Redirect to research page to view the new paper
+      router.push("/dashboard/research");
       resetAllModals();
     } catch (error) {
       console.error("Error creating research paper:", error);
@@ -182,9 +193,10 @@ export default function CreateResearchPage() {
 
   const suggestVenues = () => {
     let suggestions: string[] = [];
-    if (researchData.domain?.toLowerCase().includes("computer") || researchData.domain?.toLowerCase().includes("software")) {
+    const domain = researchData.domain || researchData.customDomain;
+    if (domain?.toLowerCase().includes("computer") || domain?.toLowerCase().includes("software")) {
       suggestions = ["IEEE Transactions", "Springer Computer Science", "arXiv"];
-    } else if (researchData.domain?.toLowerCase().includes("biology") || researchData.domain?.toLowerCase().includes("health")) {
+    } else if (domain?.toLowerCase().includes("biology") || domain?.toLowerCase().includes("health")) {
       suggestions = ["Nature", "PLOS ONE", "BioMed Central"];
     } else {
       suggestions = ["arXiv", "Springer Open", "Generic Open Access Journal"];
@@ -192,15 +204,26 @@ export default function CreateResearchPage() {
     setSuggestedVenues(suggestions);
   };
 
-  const { getRootProps, getInputProps } = useDropzone({
+  const { getRootProps, getInputProps, open } = useDropzone({
     accept: { "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"] },
     onDrop: (acceptedFiles) => {
-      setUploadedFile(acceptedFiles[0]);
+      if (acceptedFiles.length > 0) {
+        setUploadedFile(acceptedFiles[0]);
+        console.log("File uploaded:", acceptedFiles[0].name);
+      } else {
+        console.error("No valid .docx file dropped");
+        alert("Please upload a valid .docx file.");
+      }
     },
+    noClick: true, // Disable default click behavior to use our custom button
+    noKeyboard: true, // Disable keyboard navigation for simplicity
   });
 
   const convertToFormat = async () => {
-    if (!uploadedFile || !selectedFormat) return;
+    if (!uploadedFile || !selectedFormat) {
+      alert("Please upload a .docx file and select a format.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -208,16 +231,26 @@ export default function CreateResearchPage() {
       const result = await mammoth.extractRawText({ arrayBuffer });
       const rawText = result.value;
 
+      if (!rawText) {
+        throw new Error("No text could be extracted from the Word file.");
+      }
+
+      // Log the raw text for debugging (optional, to verify extraction)
+      console.log("Extracted text from Word file:", rawText);
+
       const response = await axios.post("/api/convertFormat", {
         text: rawText,
         format: selectedFormat,
+        paperType: selectedPaperType,
       }, {
         headers: {
           "Content-Type": "application/json",
         },
       });
-      setConvertedContent(response.data.content); // Assuming the API returns { content: "formatted text" }
-      setEditedContent(response.data.content);
+
+      // Ensure the entire document is converted into the desired format
+      setConvertedContent(response.data.content || "No content generated");
+      setEditedContent(response.data.content || "No content generated");
       const costs: { [key: string]: string } = {
         "IEEE Transactions": "$1000-$2000",
         "Springer Computer Science": "$1500-$3000",
@@ -229,13 +262,14 @@ export default function CreateResearchPage() {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         console.error("Error converting content:", error.response?.data || error.message);
-      } else {
-        console.error("Error converting content:", error);
-      }
-      if (axios.isAxiosError(error)) {
         alert(`Failed to convert content: ${error.response?.statusText || "Unknown error"}`);
       } else {
-        alert("Failed to convert content: Unknown error");
+        console.error("Error processing file or converting content:", error);
+        if (error instanceof Error) {
+          alert(`Failed to process file or convert content: ${error.message || "Unknown error"}`);
+        } else {
+          alert("Failed to process file or convert content: Unknown error");
+        }
       }
     } finally {
       setLoading(false);
@@ -260,6 +294,7 @@ export default function CreateResearchPage() {
   const resetFormatState = () => {
     setSuggestedVenues([]);
     setSelectedVenue("");
+    setSelectedPaperType(researchData.paperType || "");
     setSelectedFormat("");
     setUploadedFile(null);
     setConvertedContent("");
@@ -350,11 +385,11 @@ export default function CreateResearchPage() {
               <BookOpen className="mr-2 h-5 w-5 text-primary" />
               Format Research Paper
             </CardTitle>
-            <CardDescription>Generate and format a research paper based on your work.</CardDescription>
+            <CardDescription>Upload and format a research paper based on your Word document.</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              Choose a publication venue, and convert your work into a formatted document (e.g., IEEE, APA).
+              Upload a Word file (.docx), choose a publication venue and type, and convert the entire document into a formatted document (e.g., IEEE, APA).
             </p>
           </CardContent>
           <CardFooter>
@@ -621,35 +656,63 @@ export default function CreateResearchPage() {
           <DialogHeader>
             <DialogTitle>Format Research Paper</DialogTitle>
             <DialogDescription>
-              Choose a publication venue, and convert your work into a formatted document.
+              Upload a Word file (.docx), choose a publication venue and type, and convert the entire document into a formatted document (e.g., IEEE, APA).
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            
-            { (
-              <div>
-                <Label>Select Format</Label>
-                <Select onValueChange={setSelectedFormat}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a format" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="IEEE">IEEE</SelectItem>
-                    <SelectItem value="APA">APA</SelectItem>
-                    <SelectItem value="Springer">Springer</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div>
+              <Label>Suggested Publication Type</Label>
+              <Select onValueChange={setSelectedPaperType} value={selectedPaperType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select paper type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {paperTypes.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Suggested Publication Venues</Label>
+              <Select onValueChange={setSelectedVenue} value={selectedVenue}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a venue" />
+                </SelectTrigger>
+                <SelectContent>
+                  {suggestedVenues.map((venue) => (
+                    <SelectItem key={venue} value={venue}>
+                      {venue}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Select Format</Label>
+              <Select onValueChange={setSelectedFormat} value={selectedFormat}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a format" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="IEEE">IEEE</SelectItem>
+                  <SelectItem value="APA">APA</SelectItem>
+                  <SelectItem value="Springer">Springer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             {selectedFormat && (
               <div>
                 <Label>Upload Your Work (.docx)</Label>
                 <div {...getRootProps()} className="border-dashed border-2 p-4 text-center">
                   <input {...getInputProps()} />
                   <p>Drag & drop your .docx file here, or click to select</p>
+                  <Button type="button" onClick={open} className="mt-2">Browse Files</Button>
                 </div>
                 {uploadedFile && <p>Uploaded: {uploadedFile.name}</p>}
-                <Button onClick={convertToFormat} className="mt-2" disabled={loading}>
+                <Button onClick={convertToFormat} className="mt-2" disabled={loading || !uploadedFile}>
                   {loading ? "Converting..." : `Convert to ${selectedFormat}`}
                 </Button>
               </div>
@@ -667,7 +730,7 @@ export default function CreateResearchPage() {
                   </TabsList>
                   <TabsContent value="view">
                     <Label>Converted Content (View Mode)</Label>
-                    <div className="mt-2 p-4 bg-muted rounded-md border max-h-[300px] overflow-y-auto whitespace-pre-wrap">
+                    <div className="mt-2 p-4 bg-muted rounded-md border max-h-[500px] overflow-y-auto whitespace-pre-wrap">
                       {convertedContent}
                     </div>
                     <Button onClick={() => setActiveTab("edit")} className="mt-2">
@@ -679,7 +742,7 @@ export default function CreateResearchPage() {
                     <Textarea
                       value={editedContent}
                       onChange={(e) => setEditedContent(e.target.value)}
-                      className="mt-2 min-h-[300px]"
+                      className="mt-2 min-h-[500px]"
                     />
                     <div className="flex gap-2 mt-2">
                       <Button onClick={saveEditedContent}>Save Changes</Button>
