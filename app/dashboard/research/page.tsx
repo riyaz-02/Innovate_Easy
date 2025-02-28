@@ -178,7 +178,7 @@ export default function ResearchPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-between p-6 pt-0">
-                  <Button variant="outline" size="sm">
+                  <Button onClick={() => router.push(`/dashboard/research/${paper.id}`)} variant="outline" size="sm">
                     View Details
                   </Button>
                   <Button variant="outline" size="icon" className="h-8 w-8">
