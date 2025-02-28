@@ -10,22 +10,25 @@ export default function Home() {
   // Developer data (example; replace with actual developer details)
   const developers = [
     {
-      name: "John Doe",
-      role: "Lead Developer",
-      image: "/path/to/john.jpg", // Replace with actual image path or URL
-      description: "Expert in full-stack development with over 10 years of experience.",
+      name: "Sk Riyaz",
+      role: "Full Stack Developer",
+      image: "https://avatars.githubusercontent.com/u/77242659?v=4", // Replace with actual image path or URL
+      description: "Experienced full stack developer with a passion for building web applications.",
+      profileLink: "https://github.com/riyaz-02", // Add profile link
     },
     {
-      name: "Jane Smith",
+      name: "Ronit Pal",
       role: "UI/UX Designer",
-      image: "/path/to/jane.jpg", // Replace with actual image path or URL
+      image: "https://avatars.githubusercontent.com/u/121333212?v=4", // Replace with actual image path or URL
       description: "Creative designer specializing in user-centered interfaces.",
+      profileLink: "https://github.com/Ronit1909-ops", // Add profile link
     },
     {
-      name: "Alex Johnson",
-      role: "Backend Engineer",
-      image: "/path/to/alex.jpg", // Replace with actual image path or URL
-      description: "Skilled in building scalable backend systems and APIs.",
+      name: "Priyanshu Nayan",
+      role: "Frontend Developer",
+      image: "https://avatars.githubusercontent.com/u/127988127?v=4", // Replace with actual image path or URL
+      description: "Frontend developer with expertise in modern web technologies.",
+      profileLink: "https://github.com/priyanshu3082", // Add profile link
     },
   ];
 
@@ -278,10 +281,12 @@ export default function Home() {
                   <p className="text-gray-700 dark:text-gray-200">{developers[0].description}</p>
                 </CardContent>
                 <CardFooter className="justify-center">
-                  <Button variant="outline" size="sm" className="hover:bg-blue-100 dark:hover:bg-blue-800">
-                    <Code className="h-4 w-4 mr-2" />
-                    View Profile
-                  </Button>
+                  <Link href={developers[0].profileLink}>
+                    <Button variant="outline" size="sm" className="hover:bg-blue-100 dark:hover:bg-blue-800">
+                      <Code className="h-4 w-4 mr-2" />
+                      View Profile
+                    </Button>
+                  </Link>
                 </CardFooter>
               </Card>
               <Card className="border-purple-500/20 hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-2 animate-fadeIn delay-200">
@@ -294,10 +299,12 @@ export default function Home() {
                   <p className="text-gray-700 dark:text-gray-200">{developers[1].description}</p>
                 </CardContent>
                 <CardFooter className="justify-center">
-                  <Button variant="outline" size="sm" className="hover:bg-purple-100 dark:hover:bg-purple-800">
-                    <Code className="h-4 w-4 mr-2" />
-                    View Profile
-                  </Button>
+                  <Link href={developers[1].profileLink}>
+                    <Button variant="outline" size="sm" className="hover:bg-purple-100 dark:hover:bg-purple-800">
+                      <Code className="h-4 w-4 mr-2" />
+                      View Profile
+                    </Button>
+                  </Link>
                 </CardFooter>
               </Card>
               <Card className="border-green-500/20 hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-2 animate-fadeIn delay-400">
@@ -310,10 +317,12 @@ export default function Home() {
                   <p className="text-gray-700 dark:text-gray-200">{developers[2].description}</p>
                 </CardContent>
                 <CardFooter className="justify-center">
-                  <Button variant="outline" size="sm" className="hover:bg-green-100 dark:hover:bg-green-800">
-                    <Code className="h-4 w-4 mr-2" />
-                    View Profile
-                  </Button>
+                  <Link href={developers[2].profileLink}>
+                    <Button variant="outline" size="sm" className="hover:bg-green-100 dark:hover:bg-green-800">
+                      <Code className="h-4 w-4 mr-2" />
+                      View Profile
+                    </Button>
+                  </Link>
                 </CardFooter>
               </Card>
             </div>
