@@ -24,8 +24,11 @@ interface Project {
 
 interface ResearchPaper {
   id: number;
-  title: string;
-  status: "unpublished" | "published";
+  user_id: string;
+  paper_type: string;
+  domain: string;
+  topic: string; // Renamed from 'title' to 'topic' for consistency with previous usage
+  status: "draft" | "published";
   created_at: string;
 }
 
@@ -61,10 +64,10 @@ export default function DashboardPage() {
         if (projectsError) throw projectsError;
         setProjects(projectsData || []);
 
-        // Fetch research papers
+        // Fetch research papers with detailed fields
         const { data: papersData, error: papersError } = await supabase
           .from("research_papers")
-          .select("id, title, status, created_at")
+          .select("id, user_id, paper_type, domain, topic, status, created_at")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false });
         if (papersError) throw papersError;
@@ -211,8 +214,9 @@ export default function DashboardPage() {
                         <BookOpen className="h-4 w-4 text-purple-500" />
                       </div>
                       <div>
-                        <p className="font-medium">{paper.title}</p>
+                        <p className="font-medium">{paper.topic}</p>
                         <p className="text-sm text-muted-foreground">
+                          Type: {paper.paper_type}, Domain: {paper.domain}<br />
                           Last updated: {new Date(paper.created_at).toLocaleDateString()}
                         </p>
                       </div>
@@ -246,13 +250,17 @@ export default function DashboardPage() {
             <CardDescription>Create new projects or research papers.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 sm:flex-row">
-            <Button className="w-full bg-blue-600 hover:bg-blue-700">
-              <Plus className="mr-2 h-4 w-4" />
-              Create New Project
+            <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
+              <Link href="/dashboard/projects/create">
+                <Plus className="mr-2 h-4 w-4" />
+                Create New Project
+              </Link>
             </Button>
-            <Button className="w-full bg-purple-600 hover:bg-purple-700">
-              <Plus className="mr-2 h-4 w-4" />
-              Create Research Paper
+            <Button asChild className="w-full bg-purple-600 hover:bg-purple-700">
+              <Link href="/dashboard/research/create">
+                <Plus className="mr-2 h-4 w-4" />
+                Create Research Paper
+              </Link>
             </Button>
           </CardContent>
         </Card>
