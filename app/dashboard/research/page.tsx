@@ -129,8 +129,6 @@ export default function CreateProjectPage() {
     { bg: "bg-emerald-500/10", border: "border-emerald-500/20", progress: "bg-emerald-500" },
   ];
 
-  const SERPAPI_KEY = "61f15af1a2a8e323263ca25aeaa25f0bc6fecbb51a6321c68137d1d4fd3c9971";
-
   useEffect(() => {
     const fetchProjects = async () => {
       try {
@@ -176,19 +174,11 @@ export default function CreateProjectPage() {
     setSuggestedVenues(suggestions);
   };
 
-  // Fetch published research papers from Google Scholar via SerpAPI
+  // Fetch published research papers from Google Scholar via server-side proxy
   const fetchScholarPapers = async (query: string) => {
     setIsFetchingScholar(true);
     try {
-      const response = await axios.get(`https://serpapi.com/search.json`, {
-        params: {
-          engine: "google_scholar",
-          q: query,
-          api_key: SERPAPI_KEY,
-          num: 10, // Number of results to fetch
-        },
-      });
-
+      const response = await axios.get(`/api/scholar?q=${encodeURIComponent(query)}`);
       const results = response.data.organic_results?.map((result: any) => ({
         title: result.title,
         authors: result.authors || [],
@@ -196,11 +186,15 @@ export default function CreateProjectPage() {
         year: result.publication_info?.summary?.match(/\d{4}/)?.[0] || "Unknown",
         link: result.link,
       })) || [];
-
       setScholarResults(results);
     } catch (error) {
-      console.error("Error fetching Scholar papers:", error);
-      alert("Failed to fetch published papers. Please check your API key or try again.");
+      if (axios.isAxiosError(error)) {
+        console.error("Error fetching Scholar papers:", error.response?.data || error.message);
+        alert("Failed to fetch published papers. Please check your query or try again later.");
+      } else {
+        console.error("Unexpected error fetching Scholar papers:", error);
+        alert("An unexpected error occurred. Please try again.");
+      }
     } finally {
       setIsFetchingScholar(false);
     }
