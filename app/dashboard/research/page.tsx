@@ -556,9 +556,9 @@ export default function CreateProjectPage() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <BrainCircuit className="mr-2 h-5 w-5 text-primary" />
-              Take Project Quiz
+              Take Research Quiz
             </CardTitle>
-            <CardDescription>Answer a few questions and let AI generate project ideas for you.</CardDescription>
+            <CardDescription>Answer a few questions and let AI generate Research ideas for you.</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
@@ -583,7 +583,7 @@ export default function CreateProjectPage() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <BookOpen className="mr-2 h-5 w-5 text-primary" />
-              Create Research Paper
+              Format Research Paper
             </CardTitle>
             <CardDescription>Generate and format a research paper based on your work.</CardDescription>
           </CardHeader>
@@ -594,7 +594,7 @@ export default function CreateProjectPage() {
           </CardContent>
           <CardFooter>
             <Button variant={selectedOption === "research" ? "default" : "outline"} className="w-full">
-              Start Research
+              Start Formatting
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </CardFooter>
