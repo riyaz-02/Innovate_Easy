@@ -20,10 +20,9 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
-    fullName: "Gaurav Mehta",
+    fullName: "", // Reset to empty string for user input
     email: "",
     password: "",
-    confirmPassword: "123456",
     terms: false,
   });
   const [loading, setLoading] = useState(false);
@@ -32,11 +31,10 @@ export default function SignupPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value, type, checked } = e.target;
-    const normalizedId = id.replace(/-/g, "");
-    console.log(`Updating ${normalizedId} to ${type === "checkbox" ? checked : value}`);
+    console.log(`Updating ${id} to ${type === "checkbox" ? checked : value}`);
     setFormData((prev) => ({
       ...prev,
-      [normalizedId]: type === "checkbox" ? checked : value.trim(),
+      [id]: type === "checkbox" ? checked : value.trim(),
     }));
   };
 
@@ -58,11 +56,6 @@ export default function SignupPage() {
     }
     if (!formData.password || formData.password.length < 6) {
       toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
-      setLoading(false);
-      return;
-    }
-    if (formData.password !== formData.confirmPassword) {
-      toast({ title: "Error", description: "Passwords do not match", variant: "destructive" });
       setLoading(false);
       return;
     }
@@ -131,13 +124,13 @@ export default function SignupPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <label
-                htmlFor="full-name"
+                htmlFor="fullName"
                 className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
               >
                 Full Name
               </label>
               <Input
-                id="full-name"
+                id="fullName"
                 placeholder="John Doe"
                 value={formData.fullName}
                 onChange={handleInputChange}
@@ -172,22 +165,6 @@ export default function SignupPage() {
                 type="password"
                 placeholder="••••••••"
                 value={formData.password}
-                onChange={handleInputChange}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label
-                htmlFor="confirm-password"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Confirm Password
-              </label>
-              <Input
-                id="confirm-password"
-                type="password"
-                placeholder="••••••••"
-                value={formData.confirmPassword}
                 onChange={handleInputChange}
                 required
               />
