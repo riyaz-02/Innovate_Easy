@@ -1,5 +1,4 @@
-<h1 align="center"> Techternity
-<Br> Presents<Br>
+<h1 align="center"> Techternity Presents
 </h1>
 
 <h2 align="center"> Innovate Easy - Where learning meets exploration </h2>
