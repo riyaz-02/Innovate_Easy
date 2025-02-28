@@ -21,6 +21,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabaseClient";
 import OpenAI from "openai";
 
@@ -33,6 +34,8 @@ export default function CreateProjectPage() {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [quizStep, setQuizStep] = useState(0);
+  const [ideaModalOpen, setIdeaModalOpen] = useState(false);
+  const [ideaStep, setIdeaStep] = useState(0); // 0 for initial inputs, 1 for details
   const [quizData, setQuizData] = useState({
     projectType: "",
     experienceLevel: "",
@@ -57,6 +60,13 @@ export default function CreateProjectPage() {
     features: "",
     challenges: "",
   });
+  const [ideaData, setIdeaData] = useState({
+    title: "",
+    description: "",
+    languages: "",
+    complexity: "5",
+    duration: "",
+  });
   const router = useRouter();
 
   const handleOptionClick = (option: string) => {
@@ -64,6 +74,9 @@ export default function CreateProjectPage() {
     if (option === "quiz") {
       setIsQuizOpen(true);
       setQuizStep(0);
+    } else if (option === "idea") {
+      setIdeaModalOpen(true);
+      setIdeaStep(0);
     }
   };
 
@@ -78,6 +91,10 @@ export default function CreateProjectPage() {
 
   const handleQuizInput = (field: keyof typeof quizData, value: string | string[]) => {
     setQuizData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleIdeaInput = (field: keyof typeof ideaData, value: string) => {
+    setIdeaData((prev) => ({ ...prev, [field]: value }));
   };
 
   const generateIdea = async (reasonFilter: string = "") => {
@@ -194,6 +211,7 @@ export default function CreateProjectPage() {
   const confirmBackToHome = () => {
     setShowConfirmDialog(false);
     setIsQuizOpen(false);
+    setIdeaModalOpen(false);
     router.push("/dashboard");
   };
 
@@ -201,11 +219,15 @@ export default function CreateProjectPage() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleIdeaSubmit = () => {
+    setIdeaStep(1); // Move to the second part of the modal
+  };
+
   const handleAutoGenerate = async () => {
     setIsGenerating(true);
     try {
       const prompt = `
-        Given the project idea: "${currentIdea?.text}",
+        Given the project idea: "${ideaData.title} - ${ideaData.description}",
         Generate:
         - Project Overview: A detailed paragraph describing the project (150-200 words).
         - Features: A list of 3-5 key features, one per line, prefixed with "-".
@@ -269,17 +291,17 @@ export default function CreateProjectPage() {
 
       const projectData = {
         user_id: user.id,
-        name: currentIdea?.text || "Untitled Project",
-        description: formData.overview,
+        name: ideaData.title || "Untitled Project",
+        description: ideaData.description,
         status: "pending",
-        complexity: parseInt(currentIdea?.complexity || "5"),
-        estimated_duration: currentIdea?.duration,
+        complexity: parseInt(ideaData.complexity || "5"),
+        estimated_duration: ideaData.duration,
         features: formData.features,
         challenges: formData.challenges,
-        project_type: quizData.projectType + (quizData.customSubfield ? ` (${quizData.customSubfield})` : ""),
-        experience_level: quizData.experienceLevel,
-        languages: quizData.languages.join(", ") + (quizData.customLanguage ? `, ${quizData.customLanguage}` : ""),
-        device: quizData.device,
+        project_type: "", // User doesn’t specify; can be left empty or inferred later
+        experience_level: "", // User doesn’t specify; can be left empty or inferred later
+        languages: ideaData.languages,
+        device: "", // User doesn’t specify; can be left empty or inferred later
         created_at: new Date().toISOString(),
       };
 
@@ -290,9 +312,9 @@ export default function CreateProjectPage() {
       }
 
       console.log("Project saved successfully:", projectData);
-      const projectId = data.id; // Get the inserted project's ID
-      setIsQuizOpen(false);
-      router.push(`/dashboard/projects/${projectId}?tab=roadmap`); // Redirect to Roadmap tab
+      const projectId = data.id;
+      setIdeaModalOpen(false);
+      router.push(`/dashboard/projects/${projectId}?tab=roadmap`);
     } catch (error) {
       console.error("Error saving project:", error);
       alert("Failed to save project. Please check your database setup and try again.");
@@ -669,13 +691,160 @@ export default function CreateProjectPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Idea Modal */}
+      <Dialog open={ideaModalOpen} onOpenChange={setIdeaModalOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
+          <div className="relative p-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-0 left-0 bg-white/30 hover:bg-white/40 text-gray-800 rounded-full"
+              onClick={handleBackToHome}
+            >
+              <Home className="h-5 w-5" />
+              <span className="sr-only">Back to Home</span>
+            </Button>
+          </div>
+          <DialogHeader>
+            <DialogTitle>
+              {ideaStep === 0 && "Enter Your Project Idea"}
+              {ideaStep === 1 && "Project Details"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-4 px-4 pb-4">
+            {ideaStep === 0 && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Project Title</label>
+                  <Input
+                    type="text"
+                    value={ideaData.title}
+                    onChange={(e) => handleIdeaInput("title", e.target.value)}
+                    placeholder="e.g., Personal Blog Website"
+                    className="w-full mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Description</label>
+                  <Textarea
+                    value={ideaData.description}
+                    onChange={(e) => handleIdeaInput("description", e.target.value)}
+                    placeholder="Briefly describe your project idea..."
+                    className="w-full mt-1 h-24"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Language/Framework</label>
+                  <Input
+                    type="text"
+                    value={ideaData.languages}
+                    onChange={(e) => handleIdeaInput("languages", e.target.value)}
+                    placeholder="e.g., JavaScript, React, Node.js"
+                    className="w-full mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Complexity (1-10)</label>
+                  <select
+                    value={ideaData.complexity}
+                    onChange={(e) => handleIdeaInput("complexity", e.target.value)}
+                    className="w-full mt-1 p-2 border rounded"
+                  >
+                    {Array.from({ length: 10 }, (_, i) => (
+                      <option key={i + 1} value={(i + 1).toString()}>
+                        {i + 1}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Estimated Duration (days)</label>
+                  <Input
+                    type="number"
+                    value={ideaData.duration}
+                    onChange={(e) => handleIdeaInput("duration", e.target.value)}
+                    placeholder="e.g., 10"
+                    className="w-full mt-1"
+                    min="1"
+                  />
+                </div>
+                <Button
+                  variant="default"
+                  onClick={handleIdeaSubmit}
+                  disabled={!ideaData.title || !ideaData.description || !ideaData.languages || !ideaData.duration}
+                >
+                  Submit
+                </Button>
+              </div>
+            )}
+
+            {ideaStep === 1 && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-lg bg-gradient-to-r from-blue-300 to-purple-300">
+                  <p className="text-lg font-semibold text-white">{ideaData.title}</p>
+                  <p className="text-sm text-white">
+                    Complexity: <span className="font-medium">{ideaData.complexity}</span> | Duration:{" "}
+                    <span className="font-medium">{ideaData.duration} days</span>
+                  </p>
+                  <p className="text-sm text-white mt-2">{ideaData.description}</p>
+                  <p className="text-sm text-white">Languages: {ideaData.languages}</p>
+                </div>
+                <p className="text-sm italic text-gray-600">
+                  Let's create a skeleton for your project. This will help you organize your thoughts and plan the
+                  implementation.
+                </p>
+                <div className="space-y-2">
+                  <label className="font-medium">Project Overview</label>
+                  <Textarea
+                    placeholder="Write a detailed overview of your project here..."
+                    value={formData.overview}
+                    onChange={(e) => handleFormInput("overview", e.target.value)}
+                    className="w-full h-24 resize-y"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="font-medium">Features</label>
+                  <Textarea
+                    placeholder="List your project features here, one per line..."
+                    value={formData.features}
+                    onChange={(e) => handleFormInput("features", e.target.value)}
+                    className="w-full h-24 resize-y"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="font-medium">Potential Challenges</label>
+                  <Textarea
+                    placeholder="List potential challenges here, one per line..."
+                    value={formData.challenges}
+                    onChange={(e) => handleFormInput("challenges", e.target.value)}
+                    className="w-full h-24 resize-y"
+                  />
+                </div>
+                <div className="flex justify-between">
+                  <Button variant="outline" onClick={handleAutoGenerate} disabled={isGenerating || isSaving}>
+                    Auto Generate
+                  </Button>
+                  <Button
+                    variant="default"
+                    onClick={handleSaveAndContinue}
+                    disabled={isSaving || isGenerating}
+                  >
+                    {isSaving ? "Saving..." : "Save and Continue"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Confirmation Dialog */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Are you sure?</DialogTitle>
             <DialogDescription>
-              Leaving now will discard your current quiz progress. Do you want to return to the dashboard?
+              Leaving now will discard your current progress. Do you want to return to the dashboard?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
