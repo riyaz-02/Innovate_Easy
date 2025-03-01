@@ -1,14 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // Use a server-side environment variable
+  apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
 });
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     const { text, format } = await req.json();
-
     if (!text || !format) {
       return NextResponse.json({ error: "Text and format are required" }, { status: 400 });
     }
@@ -17,11 +16,10 @@ export async function POST(req: NextRequest) {
     const response = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 20000, // Adjust based on expected output length
+      max_tokens: 2048, // Safer limit
     });
 
-    const formattedContent = response.choices[0].message.content || "No content generated";
-    return NextResponse.json({ content: formattedContent }, { status: 200 });
+    return NextResponse.json({ content: response.choices[0]?.message?.content || "No content generated" }, { status: 200 });
   } catch (error) {
     console.error("Error in convertFormat:", error);
     return NextResponse.json({ error: "Failed to convert content" }, { status: 500 });
